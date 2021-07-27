@@ -272,3 +272,22 @@ class LoanDbHelper():
         except Exception, e:
             logger.error(e)
             raise
+
+
+    """
+    -=================================================
+    -.delete processed loan request.
+    -=================================================
+    """
+    def _del_processed_loan_request_db(self,msisdn,conn):
+        try:
+            sql = """DELETE FROM `db_freknur_loan`.`tbl_loan_request` WHERE `msisdn` = '%s' AND `is_processed` = 1 """ % (msisdn)
+
+            params = ()
+
+            db.execute_query(conn, sql, params)
+
+            conn.commit()
+        except Exception, e:
+            logger.error(e)
+            raise

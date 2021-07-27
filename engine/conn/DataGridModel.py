@@ -194,7 +194,6 @@ class DataGridModel():
         return j_string
 
 
-
     """
     -=================================================
     -.method: inventory list.
@@ -213,7 +212,6 @@ class DataGridModel():
         return j_string
 
 
-
     """
     -=================================================
     -.method: asset configuration list.
@@ -229,5 +227,5 @@ class DataGridModel():
             #-.routine call.
             j_string = data_grid_db_helper._get_asset_config_list_db(DataGrid.DataGrid(content['search'],content['lower_min'],content['lower_max'],0,0),conn)
 
-        return j_string
+        return j_string 
 

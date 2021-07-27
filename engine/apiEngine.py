@@ -9,6 +9,7 @@ import signal
 import Queue
 import requests
 
+from threading import Thread
 from urllib import unquote
 
 from random import randint
@@ -40,6 +41,7 @@ from conn.WalletModel import WalletModel
 from conn.PurchaseGrainModel import PurchaseGrainModel
 from conn.SellGrainModel import SellGrainModel
 from conn.DataGridModel import DataGridModel
+from conn.CustomerModel import CustomerModel
 #-pip install tornado.
 
 log = logging.getLogger()
@@ -85,10 +87,21 @@ def UnsecuredLoanApi():
 			resp = {"ERROR":"1","RESULT":"FAIL","MESSAGE":"GET method not allowed"}
 		elif(request.method == 'POST'):	
 			if(request.data):
+
                                 loan_model = LoanModel()
 
 				content = json.loads(request.data)
-				resp = loan_model._record_unsecured_loan_request_api(content,db)
+
+                                que = Queue.Queue()
+
+                                t = Thread(target=lambda q,(arg1,arg2): q.put(loan_model._record_unsecured_loan_request_api(arg1,arg2)), args=(que,(content,db)))
+
+				#-.resp = loan_model._record_unsecured_loan_request_api(content,db)
+
+                                t.start()
+                                t.join()
+
+                                resp = que.get()
 			else:
 				resp = {"ERROR":"1","RESULT":"FAIL" ,"MESSAGE":"No data posted"}
 					
@@ -123,16 +136,29 @@ def Registration():
 			resp = {"ERROR":"1","RESULT":"FAIL","MESSAGE":"GET method not allowed"}
 		elif(request.method == 'POST'):	
 			if(request.data):
+
+                                customer_model = CustomerModel()
+                                
                                 content = json.loads(request.data)
-				resp = _registration_api(content,db)
+
+                                que = Queue.Queue()
+
+                                t = Thread(target=lambda q,(arg1,arg2): q.put(customer_model._registration_api(arg1,arg2)), args=(que,(content,db)))
+
+				#-.resp = _registration_api(content,db)
+
+                                t.start()
+                                t.join()
+
+                                resp = que.get()
 			else:
-				resp = {"ERROR":"1","RESULT":"FAIL" ,"MESSAGE":"No data posted"}
+				resp = {"ERROR":"1","RESULT":"FAIL" ,"MESSAGE":"No data received"}
 			
 		return resp
 	except MySQLdb.Error, e:
 		log.error(e)
-	except Exception, e:
-		log.error(e)
+        except Exception, e:
+            log.error(e)
 	finally:
 		try:
 			if(not db):
@@ -158,10 +184,24 @@ def ComprenhensiveWalletStatement():
 		if(request.method == 'POST'):
 			resp = {"ERROR":"1","RESULT":"FAIL","MESSAGE":"POST method not allowed"}
 		elif(request.method == 'GET'):
-			msisdn  = request.args.get('msisdn')
-                        msisdn = request.data
+                        if(request.data):
 
-			resp = _get_comprehensive_wallet_statement_api(msisdn,db)
+                                customer_model = CustomerModel()
+
+                                msisdn = request.data
+
+                                que = Queue.Queue()
+
+                                t = Thread(target=lambda q,(arg1,arg2): q.put(customer_model._get_comprehensive_wallet_statement_api(arg1,arg2)), args=(que,(msisdn,db)))
+                                
+                                #-.resp = _get_comprehensive_wallet_statement_api(msisdn,db)
+
+                                t.start()
+                                t.join()
+
+                                resp = que.get()
+                        else:
+                                resp = {"ERROR":"1","RESULT":"FAIL" ,"MESSAGE":"No data received"}
 			
 		return resp
 	except MySQLdb.Error, e:
@@ -193,10 +233,22 @@ def LoanMiniStatement():
                 if(request.method == 'POST'):
                         resp = {"ERROR":"1","RESULT":"FAIL","MESSAGE":"POST method not allowed"}
                 elif(request.method == 'GET'):
-                        msisdn  = request.args.get('msisdn')
-                        msisdn = request.data
+                        if(request.data):
+                            
+                                customer_model = CustomerModel()
 
-                        resp = _get_mini_loan_statement_api(msisdn,db)
+                                msisdn = request.data
+
+                                que = Queue.Queue()
+
+                                t = Thread(target=lambda q,(arg1,arg2): q.put(customer_model._get_mini_loan_statement_api(arg1,arg2)), args=(que,(msisdn,db)))
+
+                                #-.resp = _get_mini_loan_statement_api(msisdn,db)
+
+                                t.start()
+                                t.join()
+
+                                resp = que.get()
 
                 return resp
         except MySQLdb.Error, e:
@@ -228,10 +280,24 @@ def AssetMiniStatement():
                 if(request.method == 'POST'):
                         resp = {"ERROR":"1","RESULT":"FAIL","MESSAGE":"POST method not allowed"}
                 elif(request.method == 'GET'):
-                        msisdn  = request.args.get('msisdn')
-                        msisdn = request.data
 
-                        resp = _get_mini_asset_statement_api(msisdn,db)
+                        if(request.data):
+
+                                customer_model = CustomerModel()
+
+                                msisdn  = request.args.get('msisdn')
+                                msisdn = request.data
+
+                                que = Queue.Queue()
+
+                                t = Thread(target=lambda q,(arg1,arg2): q.put(_get_mini_asset_statement_api(arg1,arg2)), args=(que,(msisdn,db)))
+
+                                #-.resp = _get_mini_asset_statement_api(msisdn,db)
+
+                                t.start()
+                                t.join()
+
+                                resp = que.get()
 
                 return resp
         except MySQLdb.Error, e:
@@ -275,9 +341,18 @@ def CurrentWalletBalance():
                                 cache = _read_redis_cache_api(key,rd)
 
                                 if(cache == "null" or cache is None):
-                                        #-.get current bal.
-                                        bal = _get_customer_bal_api(msisdn,db)
-                                        resp = json.dumps({"ERROR":"0","RESULT":"SUCCESS","MESSAGE":"BALANCE#"+str(bal[0])})                  
+
+                                        customer_model = CustomerModel()
+
+                                        que = Queue.Queue()
+
+                                        t = Thread(target=lambda q,(arg1,arg2): q.put(customer_model._get_customer_balance_api(arg1,arg2)), args=(que,(msisdn,db)))
+
+                                        t.start()
+                                        t.join()
+
+                                        customer_wallet = que.get()
+                                        resp = json.dumps({"ERROR":"0","RESULT":"SUCCESS","MESSAGE":"BALANCE#"+str(customer_wallet[0])})                  
                                         #-.save output
                                         _save_to_redis_cache_api(key,str(resp),rd)
                                 else:
@@ -323,8 +398,17 @@ def GenerateLoanRequestList():
 			lower_min = request.args.get('min')
 
                         content = {"search": search,"lower_max": int(lower_max),"lower_min": int(lower_min)}
-			
-			resp = data_grid_model._get_loan_request_list_api(content,db)
+		        
+                        que = Queue.Queue()
+
+                        t = Thread(target=lambda q,(arg1,arg2): q.put(data_grid_model._get_loan_request_list_api(arg1,arg2)), args=(que,(content,db)))
+
+			#resp = data_grid_model._get_loan_request_list_api(content,db)
+
+                        t.start()
+                        t.join()
+
+                        resp = que.get()
 					
 		return resp
 	except MySQLdb.Error, e:
@@ -364,8 +448,18 @@ def GenerateDispatchedLoan():
 			lower_min = request.args.get('min')
 
                         content = {"search": search,"lower_max": int(lower_max),"lower_min": int(lower_min)}
+
+
+                        que = Queue.Queue()
+
+                        t = Thread(target=lambda q,(arg1,arg2): q.put(data_grid_model._get_loan_dispatch_list_api(arg1,arg2)), args=(que,(content,db)))                        
 			
-                	resp = data_grid_model._get_loan_dispatch_list_api(content,db)
+                	#-.resp = data_grid_model._get_loan_dispatch_list_api(content,db)
+
+                        t.start()
+                        t.join()
+
+                        resp = que.get()
 					
 		return resp
 	except MySQLdb.Error, e:
@@ -406,8 +500,17 @@ def GenerateGeneralAccountList():
 			search = request.args.get('search')
 
                         content = {"search": search,"lower_max": int(lower_max),"lower_min": int(lower_min),"code": str(code)}
-			
-			resp = data_grid_model._get_general_account_list_api(content,db)
+
+                        que = Queue.Queue()
+
+                        t = Thread(target=lambda q,(arg1,arg2): q.put(data_grid_model._get_general_account_list_api(arg1,arg2)), args=(que,(content,db)))
+
+			#-.resp = data_grid_model._get_general_account_list_api(content,db)
+
+                        t.start()
+                        t.join()
+
+                        resp = que.get()
 					
 		return resp
 	except MySQLdb.Error, e:
@@ -448,7 +551,16 @@ def GenerateDebtorList():
 
                         content = {"search": search,"lower_max": int(lower_max),"lower_min": int(lower_min)}
 
-			resp = data_grid_model._get_debtor_list_api(content,db)
+                        que = Queue.Queue()
+
+                        t = Thread(target=lambda q,(arg1,arg2): q.put(data_grid_model._get_debtor_list_api(arg1,arg2)), args=(que,(content,db)))
+
+			#-.resp = data_grid_model._get_debtor_list_api(content,db)
+
+                        t.start()
+                        t.join()
+
+                        resp = que.get()
 					
 		return resp
 	except MySQLdb.Error, e:
@@ -487,8 +599,17 @@ def GenerateDefaulterList():
 			lower_min  = request.args.get('min')
 
                         content = {"search": search,"lower_max": int(lower_max),"lower_min": int(lower_min)}
+
+                        que = Queue.Queue()
+
+                        t = Thread(target=lambda q,(arg1,arg2): q.put(data_grid_model._get_defaulter_list_api(arg1,arg2)), args=(que,(content,db)))
 			
-			resp = data_grid_model._get_defaulter_list_api(content,db)
+			#-.resp = data_grid_model._get_defaulter_list_api(content,db)
+
+                        t.start()
+                        t.join()
+
+                        resp = que.get()
                     			
 		return resp
 	except MySQLdb.Error, e:
@@ -526,8 +647,17 @@ def GenerateAccountSummaryReportApi():
 			lower_min = request.args.get('min')
 
                         content = {"lower_max": int(lower_max),"lower_min": int(lower_min)}
+                        
+                        que = Queue.Queue()
 
-                        resp = data_grid_model._get_account_summary_api(content,db)
+                        t = Thread(target=lambda q,(arg1,arg2): q.put(data_grid_model._get_account_summary_api(arg1,arg2)), args=(que,(content,db)))
+
+                        #-.resp = data_grid_model._get_account_summary_api(content,db)
+
+                        t.start()
+                        t.join()
+
+                        resp = que.get()
 					
 		return resp
 	except MySQLdb.Error, e:
@@ -566,7 +696,16 @@ def GenerateStockAccountSummaryReportApi():
 
                         content = {"lower_max": int(lower_max),"lower_min": int(lower_min)}
 
-                        resp = data_grid_model._get_stock_account_summary_api(content,db)
+                        que = Queue.Queue()
+
+                        t = Thread(target=lambda q,(arg1,arg2): q.put(data_grid_model._get_stock_account_summary_api(arg1,arg2)), args=(que,(content,db)))
+
+                        #-.resp = data_grid_model._get_stock_account_summary_api(content,db)
+
+                        t.start()
+                        t.join()
+
+                        resp = que.get()
 
                 return resp
         except MySQLdb.Error, e:
@@ -605,7 +744,16 @@ def GenerateActivityLogs():
 
                         content = {"search": search,"lower_max": int(lower_max),"lower_min": int(lower_min)}
 
-                        resp = data_grid_model._get_activity_list_api(content,db)
+                        que = Queue.Queue()
+
+                        t = Thread(target=lambda q,(arg1,arg2): q.put(data_grid_model._get_activity_list_api(arg1,arg2)), args=(que,(content,db)))
+
+                        #-.resp = data_grid_model._get_activity_list_api(content,db)
+
+                        t.start()
+                        t.join()
+
+                        resp = que.get()
 
                 return resp
         except MySQLdb.Error, e:
@@ -708,7 +856,18 @@ def WithdrawRequest():
                         if(request.data):
                                 wallet_model = WalletModel()
                                 content = json.loads(request.data)
-                                resp = wallet_model._record_withdraw_transaction_api(content,db)
+                                
+                                que = Queue.Queue()
+
+                                t = Thread(target=lambda q,(arg1,arg2): q.put(wallet_model._record_withdraw_transaction_api(arg1,arg2)), args=(que,(content,db)))
+
+                                #-.resp = wallet_model._record_withdraw_transaction_api(content,db)
+
+                                t.start()
+                                t.join()
+
+                                resp = que.get()
+
                                 if(resp is None):
                                         resp = {"ERROR":"1","RESULT":"FAIL","MESSAGE":"A/C does not exist."}
                         else:
@@ -1136,7 +1295,17 @@ def PurchaseAssetRequest():
                                         qty  = content['no_of_unit'].replace(",","")
 
                                         #resp = _add_purchase_request_api(content['msisdn'],content['uid'],content['description'],content['price'],content['no_of_unit'],content['cost'],db)
-                                        resp = purchase_grain_model._record_purchase_request_api(content,db)
+
+                                        que = Queue.Queue()
+
+                                        t = Thread(target=lambda q,(arg1,arg2): q.put(purchase_grain_model._record_purchase_request_api(arg1,arg2)), args=(que,(content,db)))
+
+                                        #-.resp = purchase_grain_model._record_purchase_request_api(content,db)
+
+                                        t.start()
+                                        t.join()
+
+                                        resp = que.get()
                                 else:
                                         resp = {"ERROR":"1","RESULT":"FAIL" ,"MESSAGE":"Params expected: msisdn,uid,description,price,no_of_unit,cost"}
 
@@ -1179,7 +1348,17 @@ def SaleAssetRequest():
                                         sell_grain_model = SellGrainModel()
 
                                         #resp = _add_sale_request_api(content['msisdn'],content['uid'],content['description'],content['price'],content['no_of_unit'],content['cost'],db)
-                                        resp = sell_grain_model._record_sell_request_api(content,db)
+
+                                        que = Queue.Queue()
+
+                                        t = Thread(target=lambda q,(arg1,arg2): q.put(sell_grain_model._record_sell_request_api(arg1,arg2)), args=(que,(content,db)))
+
+                                        #-.resp = sell_grain_model._record_sell_request_api(content,db)
+
+                                        t.start()
+                                        t.join()
+
+                                        resp = que.get()
                                 else:
                                         resp = {"ERROR":"1","RESULT":"FAIL" ,"MESSAGE":"Params expected: msisdn,uid,description,price,no_of_unit,cost"}
     
@@ -1414,7 +1593,16 @@ def PurchaseAssetOnAlternativeMarket():
                                 if(len(content) == 6):
                                         purchase_grain_model = PurchaseGrainModel()
                                         #resp = _purchase_on_alternate_market_api(content['uid'],content['msisdn'],content['description'],content['price'],content['no_of_unit'],content['cost'],db)
-                                        resp = purchase_grain_model._record_alt_purchase_request_api(content,db)
+                                        que = Queue.Queue()
+
+                                        t = Thread(target=lambda q,(arg1,arg2): q.put(purchase_grain_model._record_alt_purchase_request_api(arg1,arg2)), args=(que,(content,db)))
+
+                                        #-.resp = purchase_grain_model._record_alt_purchase_request_api(content,db)
+
+                                        t.start()
+                                        t.join()
+
+                                        resp = que.get()
                                 else:
                                         resp = {"ERROR":"1","RESULT":"FAIL" ,"MESSAGE":"Params expected: uid,msisdn,description,price,no_of_unit,cost"}
 
@@ -1459,7 +1647,17 @@ def GenerateAssetConfigsList():
 
                         content = {"search": search,"lower_max": int(lower_max),"lower_min": int(lower_min)}
 
-                        resp = data_grid_model._get_asset_config_list_api(content,db)
+                        que = Queue.Queue()
+
+                        t = Thread(target=lambda q,(arg1,arg2): q.put(data_grid_model._get_asset_config_list_api(arg1,arg2)), args=(que,(content,db)))
+
+                        #-.resp = data_grid_model._get_asset_config_list_api(content,db)
+
+                        t.start()
+                        t.join()
+
+                        resp = que.get()
+
                 return resp
         except MySQLdb.Error, e:
                 log.error(e)
@@ -1617,8 +1815,16 @@ def SecuredLoan():
                                 loan_model = LoanModel()
                                 content = json.loads(request.data)                    
                                 #--...resp = _record_secured_loan_request_api(content['msisdn'],content['amount'],str(float(str(content['collateral_percentage']).replace("p",""))/100),content['has_collateral'],db)
+                                que = Queue.Queue()
 
-                                resp = loan_model._record_secured_loan_request_api(content,db)
+                                t = Thread(target=lambda q,(arg1,arg2): q.put(loan_model._record_secured_loan_request_api(arg1,arg2)), args=(que,(content,db)))
+
+                                #-.resp = loan_model._record_secured_loan_request_api(content,db)
+
+                                t.start()
+                                t.join()
+
+                                resp = que.get()
                         else:
                                 resp = {"ERROR":"1","RESULT":"FAIL" ,"MESSAGE":"No data posted"}
                 return resp
@@ -1784,9 +1990,19 @@ def PeerWalletTransfer():
                         if(request.data):
                                 wallet_model = WalletModel()
                                 content = json.loads(request.data)
+            
+                                que = Queue.Queue()
+
+                                t = Thread(target=lambda q,(arg1,arg2): q.put(wallet_model._peer_2_peer_wallet_transfer_api(arg1,arg2)), args=(que,(content,db)))
 
                                 #resp = _peer_wallet_transfer_api(content['msisdn'],content['beneficiary_msisdn'],content['amount'],db)
-                                resp = wallet_model._peer_2_peer_wallet_transfer_api(content,db)
+
+                                #resp = wallet_model._peer_2_peer_wallet_transfer_api(content,db)
+
+                                t.start()
+                                t.join()
+
+                                resp = que.get()
                         else:
                                 resp = {"ERROR":"1","RESULT":"FAIL" ,"MESSAGE":"No data posted"}
                 return resp
@@ -1859,7 +2075,68 @@ def GenerateInventoryList():
                         lower_max = request.args.get('max')
                         lower_min = request.args.get('min')
 
-                        resp = _inventory_list_api(search,lower_min,lower_max,db)
+                        data_grid_model = DataGridModel()
+
+                        #-.resp = _inventory_list_api(search,lower_min,lower_max,db)
+
+                        content = {"search": search,"lower_max": int(lower_max),"lower_min": int(lower_min)}
+
+                        que = Queue.Queue()
+
+                        t = Thread(target=lambda q,(arg1,arg2): q.put(data_grid_model._inventory_list_api(arg1,arg2)), args=(que,(content,db)))
+
+                        t.start()
+                        t.join()
+
+                        resp = que.get()
+                return resp
+        except MySQLdb.Error, e:
+                log.error(e)
+        except Exception, e:
+                log.error(e)
+        finally:
+                try:
+                        if(not db):
+                                exit(0)
+                        else:
+                                """
+                                close MySQL connection.
+                                """
+                                close_connection(db)
+                except MySQLdb.Error, e:
+                        log.error(e)
+
+
+
+#=====================================================================
+#-.route: shop inventory list. (app)
+#=====================================================================
+@app.route('/GenerateShopInventoryListApi/', methods = ['GET', 'POST'])
+@auto.doc(groups=['get','public','private'])
+def GenerateShopInventoryList():
+        "Generate a shop inventory list."
+        db = create_connection()
+        try:
+                if(request.method == 'POST'):
+                        resp = {"ERROR":"1","RESULT":"FAIL","MESSAGE":"POST method not allowed"}
+                elif(request.method == 'GET'):
+
+                        msisdn = request.data
+
+                        customer_model = CustomerModel()
+
+                        #-resp = _inventory_list_api(search,lower_min,lower_max,db)
+
+                        content = {"msisdn":msisdn}
+
+                        que = Queue.Queue()
+
+                        t = Thread(target=lambda q,(arg1,arg2): q.put(customer_model._shop_inventory_list_api(arg1,arg2)), args=(que,(content,db)))
+
+                        t.start()
+                        t.join()
+
+                        resp = que.get()
                 return resp
         except MySQLdb.Error, e:
                 log.error(e)
@@ -1894,7 +2171,20 @@ def GenerateSaleList():
                         lower_max = request.args.get('max')
                         lower_min = request.args.get('min')
 
-                        resp = _get_sales_record_list_api(search,lower_min,lower_max,db)
+                        #-.resp = _get_sales_record_list_api(search,lower_min,lower_max,db)
+
+                        data_grid_model = DataGridModel()
+
+                        content = {"search": search,"lower_max": int(lower_max),"lower_min": int(lower_min)}
+
+                        que = Queue.Queue()
+
+                        t = Thread(target=lambda q,(arg1,arg2): q.put(data_grid_model._get_sale_inventory_list_api(arg1,arg2)), args=(que,(content,db)))
+
+                        t.start()
+                        t.join()
+
+                        resp = que.get()                        
                 return resp
         except MySQLdb.Error, e:
                 log.error(e)

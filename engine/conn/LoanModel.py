@@ -97,3 +97,27 @@ class LoanModel():
             j_string = {"ERROR":"1","RESULT":"FAIL","MESSAGE":"You are not a registered user."}
 
         return j_string
+
+
+    """
+    -=================================================
+    -.delete processed loan request.
+    -=================================================
+    """
+    def _del_processed_loan_request_sys(self,msisdn,conn):
+
+        loan_db_helper = LoanDbHelper()
+        #-.routine call.
+        user_exist = _get_user_db(msisdn,conn)
+
+        if(int(user_exist) == 1):
+            #-.routine call.
+            loan_db_helper._del_processed_loan_request_db(msisdn,conn)
+
+            j_string = {"ERROR":"0","RESULT":"SUCCESS","MESSAGE":"Clean up successful."}
+        else:
+            j_string = {"ERROR":"1","RESULT":"FAIL","MESSAGE":"You have an existing loan."}
+
+
+        return j_string
+

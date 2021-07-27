@@ -23,7 +23,8 @@ def processLoanDueAlert():
                         """
                         -.get loan request list.
                         """
-                        items = json.loads(_loan_due_list_sys(db))                    
+                        items = json.loads(_loan_due_list_sys(db))
+                        print(items)
 			"""
 			-.loop through each in the list
 			"""

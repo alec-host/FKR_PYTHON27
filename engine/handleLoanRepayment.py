@@ -9,6 +9,8 @@ import logging
 import signal
 import Queue
 
+from conn.LoanModel import LoanModel
+
 from conn.model import _loan_payment_sys,_read_payment_list_sys,_acitivity_log_sys,_delete_from_redis_cache_api
 from conn.configs.freknur_settings import loan_params,accounting_params
 from conn.db_helper import create_connection,close_connection,NoResultException,create_redis_connection,redis_access_key
@@ -20,41 +22,32 @@ def repayLoan():
                 while True:
                         db = create_connection()
                         rd = create_redis_connection()
-                        """
-                        -.get payment list.
-                        """
+                        #-.routine call.
                         items = json.loads(_read_payment_list_sys(db))
-                        """
-                        -.loop through each in the list
-                        """
+                        #-.list not empty.
                         if(len(items) > 0):
                                 for item in items:
-                                        """
-                                        -.pay loan.
-                                        """
+                                        #-.routine call.
                                         result =_loan_payment_sys(item['msisdn'],item['amount'],item['transaction_no'],db)
-                                        """
-                                        -.activity description.
-                                        """
+                                        #-.trx particulars.
                                         activity = "A PAYMENT OF "+str(item['amount']) + " HAS BEEN MADE. " + str(result['MESSAGE'])
-                                        """
-                                        -.check result.
-                                        """
+                                        #-.check result.
                                         if(result['ERROR'] == "0" and result['RESULT'] == "SUCCESS"):
-                                                """
-                                                -.log user activity.
-                                                """
+                                                #-.log activity.
                                                 _acitivity_log_sys(item['msisdn'],activity,db)
-                                                """
-                                                -.get keys.
-                                                """
+                                                #-.get keys.
                                                 key_1 = redis_access_key()[0]+str(item['msisdn'])
                                                 key_2 = redis_access_key()[1]+str(item['msisdn'])
-                                                """
-                                                -.reset cache.
-                                                """
+                                                #-.reset cache.
                                                 _delete_from_redis_cache_api(key_1,rd)
                                                 _delete_from_redis_cache_api(key_2,rd)
+                                                #-.search string.
+                                                substring = "Movement complete."
+                                                #-.perform clean up.
+                                                if(substring in str(result['MESSAGE'])):
+                                                        loan_model = LoanModel()
+                                                        #-.routine call.
+                                                        loan_model._del_processed_loan_request_sys(str(item['msisdn']),db)
         except MySQLdb.Error, e:
                 log.error(e)
         except Exception, ex:

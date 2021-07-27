@@ -7,12 +7,13 @@ import ast
 import json
 import eventlet
 import logging
+import decimal
 import MySQLdb
 import MySQLdb.cursors
 
 import redis
 
-from Utils import DecimalEncoder
+from Utils import Utils
 from RedisHelper import RedisHelper
 from configs.freknur_settings import logger,mysql_params
 from db_conn import DB,NoResultException
@@ -385,6 +386,8 @@ class DataGridDbHelper():
         lower_limit = this.lower_limit
         upper_limit = this.upper_limit
 
+        utils = Utils()
+
         try:
             if(str(code) == 'GEN'):
                 if(str(search) == '0'):
@@ -437,24 +440,37 @@ class DataGridDbHelper():
                           LIMIT %i, %i
                           """ % (status,str(code),search,int(lower_limit),int(upper_limit))                
             elif(str(code) == 'STMT'):
-                sql = """
-                      SELECT
-                      'SELF' AS account_code,`reference_no`,`msisdn`,`cr`,`dr`,`balance`,`narration`,CONCAT("",`date_created`,"") AS date_created
-                      FROM
-                     `tbl_wallet_transaction`
-                      WHERE
-                     `is_archived` = %s AND `msisdn` = '%s'
-                      ORDER BY
-                     `date_created` DESC
-                      LIMIT %i, %i
-                      """ % (status,search,int(lower_limit),int(upper_limit))
+                if(str(search) == '0'):
+                    sql = """
+                          SELECT
+                          'SELF' AS account_code,`reference_no`,`msisdn`,`cr`,`dr`,`balance`,`narration`,CONCAT("",`date_created`,"") AS date_created
+                          FROM
+                         `db_freknur_loan`.`tbl_wallet_transaction`
+                          WHERE
+                         `is_archived` = %s
+                          ORDER BY
+                         `date_created` DESC
+                          LIMIT %i, %i
+                          """ % (status,int(lower_limit),int(upper_limit))                    
+                else:
+                    sql = """
+                          SELECT
+                          'SELF' AS account_code,`reference_no`,`msisdn`,`cr`,`dr`,`balance`,`narration`,CONCAT("",`date_created`,"") AS date_created
+                          FROM
+                         `db_freknur_loan`.`tbl_wallet_transaction`
+                          WHERE
+                         `is_archived` = %s AND `msisdn` = '%s'
+                          ORDER BY
+                         `date_created` DESC
+                          LIMIT %i, %i
+                          """ % (status,search,int(lower_limit),int(upper_limit))
             else:
                 if(str(search) == '0'):
                     sql = """
                           SELECT
                          `account_code`,`reference_no`,`msisdn`,`cr`,`dr`,`balance`,`narration`,CONCAT("",`date_created`,"") AS date_created
                           FROM
-                         `tbl_transaction`
+                         `db_freknur_loan`.`tbl_transaction`
                           WHERE
                          `is_archived` = %s AND `account_code` = '%s'
                           ORDER BY
@@ -466,7 +482,7 @@ class DataGridDbHelper():
                            SELECT
                           `account_code`,`reference_no`,`msisdn`,`cr`,`dr`,`balance`,`narration`,CONCAT("",`date_created`,"") AS date_created
                            FROM
-                          `tbl_transaction`
+                          `db_freknur_loan`.`tbl_transaction`
                            WHERE
                           `is_archived` = %s AND `account_code` = '%s' AND `msisdn` = '%s'
                            ORDER BY
@@ -477,12 +493,14 @@ class DataGridDbHelper():
 
             params = ()
 
+            print(sql)
+
             recordset = db.retrieve_all_data_params(conn,sql,params)
 
-            jsonArray = ast.literal_eval(json.dumps(recordset,cls=DecimalEncoder))
+            jsonArray = ast.literal_eval(json.dumps(recordset))
             jsonArraySize = len(jsonArray)
-
-            j_string = json.dumps({"Result":"OK","Records":recordset,"TotalRecordCount":str(jsonArraySize)},cls=DecimalEncoder)
+            
+            j_string = json.dumps({"Result":"OK","Records":recordset,"TotalRecordCount":str(jsonArraySize)},default=utils.decimal_default)
 
         except Exception,e:
             logger.error(e)
@@ -559,6 +577,8 @@ class DataGridDbHelper():
         lower_limit = this.lower_limit
         upper_limit = this.upper_limit
 
+        utils = Utils()
+
         try:
             if(str(search) == '0'):
                 sql = """
@@ -591,7 +611,7 @@ class DataGridDbHelper():
             jsonArraySize = len(jsonArray)
             
             
-            j_string = json.dumps({"Result":"OK","Records":recordset,"TotalRecordCount":str(jsonArraySize)},default=decimal_default)
+            j_string = json.dumps({"Result":"OK","Records":recordset,"TotalRecordCount":str(jsonArraySize)},default=utils.decimal_default)
 
         except Exception, e:
             logger.error(e)
@@ -606,7 +626,7 @@ class DataGridDbHelper():
     -.method: sales inventory list.
     -=================================================
     """
-    def get_sale_inventory_list_db(search,this,conn):
+    def get_sale_inventory_list_db(self,this,conn):
         is_archived = 0
         j_string = None
 
@@ -660,7 +680,7 @@ class DataGridDbHelper():
     -.method:asset config list.
     -=================================================
     """
-    def _get_asset_config_list_db(search,this,conn):
+    def _get_asset_config_list_db(self,this,conn):
         status  = 0
         j_string = None
 

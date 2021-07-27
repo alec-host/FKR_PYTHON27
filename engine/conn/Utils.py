@@ -1,10 +1,14 @@
 #!/usr/bin/python
 
+import json
+import decimal
+
 """
 developer skype: alec_host
 """
 
 class Utils():
+
     def is_number(self,input_string):
         try:
             float(input_string)
@@ -20,14 +24,20 @@ class Utils():
         except(TypeError, ValueError):
             pass
     
-        return Fals
+        return False
 
-import json
+    def decimal_default(self,obj):
+        if isinstance(obj,decimal.Decimal):
+            return float(obj)
+
+        raise TypeError
+
+'''
+-.class: encode decimal value.
+'''
 class DecimalEncoder(json.JSONEncoder):
+
     def default(self, o):
         if isinstance(o, decimal.Decimal):
-            # wanted a simple yield str(o) in the next line,
-            # but that would mean a yield on the line with super(...),
-            # which wouldn't work (see my comment below), so...
-            return (str(o) for o in [o])
-        return super(DecimalEncoder, self).default(o)
+            return (str(o))
+        return json.JSONEncoder.default(self,o)

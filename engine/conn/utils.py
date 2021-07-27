@@ -17,6 +17,6 @@ from json import JSONEncoder
 """
 def date_time_encoder(JSONEncoder):
         
-        def default(self, obj):
-                if isinstance(obj,(datetime.date,datetime.datetime)):
-                        return obj.isoformat()
+    def default(self, obj):
+        if isinstance(obj,(datetime.date,datetime.datetime)):
+            return obj.isoformat()

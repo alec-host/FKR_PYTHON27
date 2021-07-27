@@ -19,6 +19,7 @@ import redis
 from datetime import datetime
 
 from RedisHelper import RedisHelper
+from db_helper import _acitivity_log_db
 from configs.freknur_settings import logger,mysql_params
 from db_conn import DB,NoResultException
 
