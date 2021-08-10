@@ -20,7 +20,7 @@ from datetime import datetime
 
 from Utils import Utils
 
-from db_helper import _get_user_db,_get_uid_db
+from db_helper import _get_user_db,_get_uid_db,_get_porfolio_temp_size_db
 from configs.freknur_settings import logger,mysql_params
 from db_conn import DB,NoResultException
 
@@ -145,7 +145,6 @@ class CustomerDbHelper():
         return j_string
 
 
-
     """
     -=================================================
     -.get mini asset statement.
@@ -264,3 +263,55 @@ class CustomerDbHelper():
             raise
 
         return j_string
+
+
+    """
+    -=================================================
+    -.get customer portfolio..
+    -=================================================
+    """
+    def _get_customer_portfolio_db(self,this,conn,limit=1000):
+
+        j_string = None
+        
+        utils = Utils()
+
+        msisdn = this.msisdn
+
+        cnt = _get_porfolio_temp_size_db(msisdn,conn)
+
+        try:
+            if(int(cnt) == 0):
+                sql = """
+                      SELECT
+                     `msisdn`,`asset_id` AS uid,`asset_acronym` AS name,`number_of_asset`,(SELECT `unit_price` FROM `db_freknur_investment`.`tbl_asset` WHERE `uid` = asset_id) AS unit_price,'0' AS has_secured_loan,CONCAT("",`date_created`,"") AS purchase_date 
+                      FROM 
+                     `db_freknur_investment`.`tbl_owner_portfolio` 
+                      WHERE 
+                     `msisdn` = %s AND `lock` = 0             
+                      LIMIT %s
+                      """
+            else:
+                sql = """
+                      SELECT
+                     `msisdn`,`asset_id` AS uid,`asset_acronym` AS name,`number_of_asset`,(SELECT `unit_price` FROM `db_freknur_investment`.`tbl_asset` WHERE `uid` = asset_id) AS unit_price,'1' AS has_secured_loan,CONCAT("",`date_created`,"") AS purchase_date 
+                      FROM 
+                     `db_freknur_investment`.`tbl_owner_portfolio_temp_list`` 
+                      WHERE 
+                     `msisdn` = %s AND `lock` = 0             
+                      LIMIT %s
+                      """
+        
+            params = (msisdn,limit,)
+            
+            recordset = db.retrieve_all_data_params(conn,sql,params)
+            
+            if(len(recordset) == 0):
+                j_string = json.dumps({"ERROR":"1","RESULT":"FAIL","DATA":recordset,"MESSAGE":"User has no investments"},default=utils.decimal_default)
+            else:
+                j_string = json.dumps({"ERROR":"0","RESULT":"SUCCESS","DATA":recordset,"MESSAGE":"User has investments"},default=utils.decimal_default)
+        except Exception,e:
+            logger.error(e)
+            raise
+
+        return j_string    

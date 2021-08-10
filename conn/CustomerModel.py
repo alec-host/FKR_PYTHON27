@@ -144,3 +144,27 @@ class CustomerModel():
                 j_string = {"ERROR":"1","RESULT":"FAIL","MESSAGE":"User does not exist."}
 
         return j_string
+
+
+
+    """
+    -=================================================
+    -.method: customer portfolio.
+    -=================================================
+    """
+    def _get_customer_portfolio_api(self,content,conn):
+
+        j_string = None
+
+        customer_db_helper = CustomerDbHelper()
+        #-.routine call.
+        user_exist = _get_user_db(content['msisdn'],conn)
+
+        if(conn is not None):
+            if(int(user_exist) == 1):
+                #-.routine call.
+                j_string = customer_db_helper._get_customer_portfolio_db(Customer.Customer(0,content['msisdn'],0),conn)
+            else:
+                j_string = {"ERROR":"1","RESULT":"FAIL","MESSAGE":"Do not have asset portfolio.."}
+
+        return j_string

@@ -1793,16 +1793,28 @@ def _get_asset_config_params_db(conn):
 """  
 def _get_customer_portfolio_db(msisdn,conn,limit=1000):
         j_string = None
+        cnt = _get_size_customer_porfolio_temp_db(msisdn,conn)
         try:
-                sql = """
-                      SELECT
-                     `msisdn`,`asset_id` AS uid,`asset_acronym` AS name,`number_of_asset`,(SELECT `unit_price` FROM `db_freknur_investment`.`tbl_asset` WHERE `uid` = asset_id) AS unit_price,CONCAT("",`date_created`,"") AS purchase_date 
-                      FROM 
-                     `db_freknur_investment`.`tbl_owner_portfolio` 
-                      WHERE 
-                     `msisdn` = %s AND `lock` = 0             
-                      LIMIT %s
-                      """
+                if(int(cnt) == 0):
+                        sql = """
+                              SELECT
+                             `msisdn`,`asset_id` AS uid,`asset_acronym` AS name,`number_of_asset`,(SELECT `unit_price` FROM `db_freknur_investment`.`tbl_asset` WHERE `uid` = asset_id) AS unit_price,'0' AS has_secured_loan,CONCAT("",`date_created`,"") AS purchase_date 
+                              FROM 
+                             `db_freknur_investment`.`tbl_owner_portfolio` 
+                              WHERE 
+                             `msisdn` = %s AND `lock` = 0             
+                              LIMIT %s
+                              """
+                else:
+                        sql = """
+                              SELECT
+                             `msisdn`,`asset_id` AS uid,`asset_acronym` AS name,`number_of_asset`,(SELECT `unit_price` FROM `db_freknur_investment`.`tbl_asset` WHERE `uid` = asset_id) AS unit_price,'1' AS has_secured_loan,CONCAT("",`date_created`,"") AS purchase_date 
+                              FROM 
+                             `db_freknur_investment`.`tbl_owner_portfolio_temp_list`` 
+                              WHERE 
+                             `msisdn` = %s AND `lock` = 0             
+                              LIMIT %s
+                              """
                 params = (msisdn,limit,)
 
                 recordset = db.retrieve_all_data_params(conn,sql,params)
@@ -1817,6 +1829,35 @@ def _get_customer_portfolio_db(msisdn,conn,limit=1000):
                 raise
 
         return j_string
+
+"""
+-=================================================
+-.get size customer asset portfolio temp.
+-=================================================
+"""
+def _get_porfolio_temp_size_db(msisdn,conn):
+        cnt = 0
+        try:
+                sql = """
+                      SELECT
+                      COUNT(`msisdn`) AS cnt
+                      FROM 
+                     `db_freknur_investment`.`tbl_owner_portfolio_temp_list` 
+                      WHERE 
+                     `msisdn` = %s AND `lock` = 0             
+                      """
+                params = (msisdn,)
+
+                recordset = db.retrieve_all_data_params(conn,sql,params)
+
+                for record in recordset:
+                        cnt = record['cnt'] 
+
+        except Exception,e:
+                logger.error(e)
+                raise
+
+        return cnt
 
 """
 -=================================================

@@ -57,7 +57,6 @@ port   = config.get("redis", "port")
 passwd = config.get("redis", "password")
 redis_params = {'host' :host, 'port' :port, 'passwd' :passwd}
 
-
 balance_key     = config.get("redis_key", "user_wallet_balance_key")
 portfolio_key   = config.get("redis_key", "user_asset_portfolio_key")
 grain_stmt_key  = config.get("redis_key", "user_grain_stmt_key")
@@ -68,3 +67,11 @@ asset_list_key  = config.get("redis_key", "asset_list_key")
 message_key     = config.get("redis_key", "push_message_key")
 
 redis_key_params = {'USER_WALLET_BAL_KEY' : balance_key, 'USER_PORTFOLIO_KEY' : portfolio_key, 'USER_GRAIN_STMT' : grain_stmt_key, 'USER_LOAN_STMT' : loan_stmt_key, 'USER_WALLET_STMT' : wallet_stmt_key, 'SHOP_LIST' : shop_list_key, 'ASSET_LIST' : asset_list_key, 'PUSH_NOTIFICATION_KEY' : message_key} 
+
+shop_pubsub           = config.get("redis_pubsub", "shop_sale_channel")
+loan_pubsub           = config.get("redis_pubsub", "loan_channel")
+asset_pubsub          = config.get("redis_pubsub", "asset_channel")
+asset_sale_pubsub     = config.get("redis_pubsub", "asset_sale_channel")
+asset_purchase_pubsub = config.get("redis_pubsub", "asset_purchase_channel")
+
+redis_pubsub_params = {'SHOP_PUBSUB' : shop_pubsub, 'LOAN_PUBSUB': loan_pubsub, 'ASSET_PUBSUB' : asset_pubsub, 'SALE_PUBSUB' : asset_sale_pubsub, 'PURCHASE_PUBSUB' : asset_purchase_pubsub}

@@ -45,6 +45,7 @@ from conn.PurchaseGrainModel import PurchaseGrainModel
 from conn.SellGrainModel import SellGrainModel
 from conn.DataGridModel import DataGridModel
 from conn.CustomerModel import CustomerModel
+from conn.ShopModel import ShopModel
 #-pip install tornado.
 
 log = logging.getLogger()
@@ -899,14 +900,14 @@ def WithdrawRequest():
 			resp = {"ERROR":"1","RESULT":"FAIL","MESSAGE":"GET method not allowed"}		
 		elif(request.method == 'POST'):
                         if(request.data):
+
                                 wallet_model = WalletModel()
+
                                 content = json.loads(request.data)
                                 
                                 que = Queue.Queue()
 
                                 t = Thread(target=lambda q,(arg1,arg2): q.put(wallet_model._record_withdraw_transaction_api(arg1,arg2)), args=(que,(content,db)))
-
-                                #-.resp = wallet_model._record_withdraw_transaction_api(content,db)
 
                                 t.start()
                                 t.join()
@@ -948,14 +949,19 @@ def OutstandingLoan():
                         resp = {"ERROR":"1","RESULT":"FAIL","MESSAGE":"POST method not allowed"}
                 elif(request.method == 'GET'):
                         if(request.data):
+
                                 msisdn = request.data
-                                
-                                loan = _get_loan_arrears_api(msisdn,db)
-                            
-                                if(int(float(loan)) == 0):
-                                        resp = {"ERROR":"1","RESULT":"SUCCESS","MESSAGE":"DO NOT HAVE A LOAN"}
-                                else:
-                                        resp = {"ERROR":"0","RESULT":"SUCCESS","MESSAGE":"OUTSTANDING BAL#" + str(loan) + ""}
+
+                                loan_db_helper = LoanDbHelper()
+
+                                que = Queue.Queue()
+
+                                t = Thread(target=lambda q,(arg1,arg2): q.put(loan_db_helper._get_loan_arrears_api(arg1,arg2)), args=(que,(msisdn,db)))
+
+                                t.start()
+                                t.join()
+
+                                resp = que.get()            
                         else:
                                 resp = {"ERROR":"1","RESULT":"FAIL","MESSAGE":"MSISDN must be SET."}
                 return resp
@@ -1152,8 +1158,21 @@ def GenerateCustomerPortfolio():
                         #-.read cache.
                         cache = redis_helper._read_redis_cache(key,rd)
 
-                        if(cache == "null" or cache is None):
-                                resp = _get_customer_portfolio_api(msisdn,db)
+                        if(cache is None):
+                                customer_model = CustomerModel()
+
+                                content = {"msisdn": msisdn}
+
+                                que = Queue.Queue()
+
+                                t = Thread(target=lambda q,(arg1,arg2): q.put(customer_model._get_customer_portfolio_api(arg1,arg2)), args=(que,(content,db)))
+                                
+                                #-..resp = customer_model._get_customer_portfolio_api(content,db)
+
+                                t.start()
+                                t.join()
+
+                                resp = que.get()
                                 #-.save output.
                                 redis_helper._save_to_redis_cache(key,str(resp),rd)
                         else:
@@ -2423,6 +2442,58 @@ def PostInventoryImagePath():
 
 
 #=====================================================================
+#-.route: record shop sales. (app cart)
+#=====================================================================
+@app.route('/RecordShopSaleApi/', methods = ['GET', 'POST'])
+@auto.doc(groups=['posts','public','private'])
+def RecordShopSaleApi():
+        "Records sales list from shop cart."
+        redis_helper = RedisHelper()
+        rd = redis_helper.create_redis_connection()
+
+        db = create_connection()
+        try:
+                if(request.method == 'GET'):
+                        resp = {"ERROR":"1","RESULT":"FAIL","MESSAGE":"GET method not allowed"}
+                elif(request.method == 'POST'):
+                        if(request.data):
+
+                                shop_model = ShopModel()
+
+                                content = json.loads(request.data)
+
+                                que = Queue.Queue()
+
+                                t = Thread(target=lambda q,(arg1,arg2): q.put(shop_model._record_shop_sale_api(arg1,arg2)), args=(que,(content,db)))
+
+                                #--.shop_model._record_shop_sale_api(content,db)
+                                t.start()
+                                t.join()
+
+                                resp = que.get()
+
+                                #--.resp = {"msisdn":"2547xxx","grand_total":"1200","cart":[{"product_id":"123456","qty":"1","name":"Key Chain","price":"150"}]}
+                        else:
+                                resp = {"ERROR":"1","RESULT":"FAIL" ,"MESSAGE":"modification successful"}
+                return resp
+        except MySQLdb.Error, e:
+                log.error(e)
+        except Exception, e:
+                log.error(e)
+        finally:
+                try:
+                        if(not db):
+                                exit(0)
+                        else:
+                                """
+                                close MySQL connection.
+                                """
+                                close_connection(db)
+                except MySQLdb.Error, e:
+                        log.error(e)
+
+
+#=====================================================================
 #-.route: loan repyment. (app)
 #=====================================================================
 @app.route('/LoanRepaymentTestApi/', methods = ['GET', 'POST'])
@@ -2458,6 +2529,82 @@ def LoanRepaymentTest():
                                 close_connection(db)
                 except MySQLdb.Error, e:
                         log.error(e)
+
+
+#=====================================================================
+#-.route: purchase FRK. (app)
+#=====================================================================
+@app.route('/PurchaseFKRTokenApi/', methods = ['GET', 'POST'])
+@auto.doc(groups=['posts','public','private'])
+@auto.doc(args=['amount','msisdn'])
+def PurchaseFRKToken():
+        db = create_connection()
+        try:
+                resp = 'Ok'
+                if(request.method == 'GET'):
+                        resp = {"ERROR":"1","RESULT":"FAIL","MESSAGE":"GET method not allowed"}
+                elif(request.method == 'POST'):
+                        if(request.data):
+                                trx = str(randint(100000000,999999999))
+                                content = json.loads(request.data)
+
+                                resp = {"ERROR":"0","RESULT":"SUCCESS","MESSAGE":"Debit  wallet balance."}
+                        else:
+                                resp = {"ERROR":"1","RESULT":"FAIL" ,"MESSAGE":"No data posted"}
+                return resp
+        except MySQLdb.Error, e:
+                log.error(e)
+        except Exception, e:
+                log.error(e)
+        finally:
+                try:
+                        if(not db):
+                                exit(0)
+                        else:
+                                """
+                                close MySQL connection.
+                                """
+                                close_connection(db)
+                except MySQLdb.Error, e:
+                        log.error(e)
+
+
+#=====================================================================
+#-.route: sell  FRK. (app)
+#=====================================================================
+@app.route('/SellFKRTokenApi/', methods = ['GET', 'POST'])
+@auto.doc(groups=['posts','public','private'])
+@auto.doc(args=['amount','msisdn'])
+def SellFRKToken():
+        db = create_connection()
+        try:
+                resp = 'Ok'
+                if(request.method == 'GET'):
+                        resp = {"ERROR":"1","RESULT":"FAIL","MESSAGE":"GET method not allowed"}
+                elif(request.method == 'POST'):
+                        if(request.data):
+                                trx = str(randint(100000000,999999999))
+                                content = json.loads(request.data)
+
+                                resp = {"ERROR":"0","RESULT":"SUCCESS","MESSAGE":"Credit wallet balance."}
+                        else:
+                                resp = {"ERROR":"1","RESULT":"FAIL" ,"MESSAGE":"No data posted"}
+                return resp
+        except MySQLdb.Error, e:
+                log.error(e)
+        except Exception, e:
+                log.error(e)
+        finally:
+                try:
+                        if(not db):
+                                exit(0)
+                        else:
+                                """
+                                close MySQL connection.
+                                """
+                                close_connection(db)
+                except MySQLdb.Error, e:
+                        log.error(e)                        
 
 
 #=====================================================================

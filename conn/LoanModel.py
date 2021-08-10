@@ -84,7 +84,7 @@ class LoanModel():
                         #-.routine call.
                         loan_db_helper._lock_customer_asset_portfolio(content['msisdn'],conn)
                         #-.routine call.
-                        loan_db_helper._log_customer_collateral_info_db(content['msisdn'],content['amount'],collateral_amount,collateral_size,conn)
+                        loan_db_helper._log_customer_collateral_info_db(Loan.Loan(loan_uid,content['msisdn'],content['amount'],collateral_size,content['has_collateral']),collateral_amount,conn)
 
                         j_string = {"ERROR":"0","RESULT":"SUCCESS","MESSAGE":"Loan request was successful."}
                     else:
@@ -121,3 +121,27 @@ class LoanModel():
 
         return j_string
 
+
+    """
+    -=================================================
+    -.method: customer loan arrears.
+    -=================================================
+    """
+    def _get_loan_arrears_api(self,msisdn,conn):
+
+        loan_db_helper = LoanDbHelper()
+        #-.routine call.
+        user_exist = _get_user_db(msisdn,conn)
+
+        if(int(user_exist) == 1):
+            #-.routine call.
+            loan_amount = loan_db_helper._get_loan_arrears_db(msisdn,conn)
+
+            if(int(float(loan_amount)) == 0):
+                j_string = {"ERROR":"1","RESULT":"SUCCESS","MESSAGE":"DO NOT HAVE A LOAN"}
+            else:
+                j_string = {"ERROR":"0","RESULT":"SUCCESS","MESSAGE":"OUTSTANDING BAL#" + str(loan_amount) + ""}
+        else:
+            j_string = {"ERROR":"1","RESULT":"SUCCESS","MESSAGE":"You are not a registered user."}
+
+        return j_string

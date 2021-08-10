@@ -16,8 +16,11 @@ from conn.SellGrainModel import SellGrainModel
 from conn.PurchaseGrainModel import PurchaseGrainModel
 from conn.DataGridModel import DataGridModel
 from conn.CustomerModel import CustomerModel
+from conn.ShopModel import ShopModel
+
+from conn.RedisHelper import RedisHelper
 #-from conn.DataGridModel import DataGridModel
-from conn.db_helper import create_connection,close_connection,NoResultException,create_redis_connection,redis_access_key
+from conn.db_helper import create_connection,close_connection,NoResultException
 from conn.model import _read_redis_cache_api
 
 loan_model =  LoanModel()
@@ -30,6 +33,8 @@ data_grid_model = DataGridModel()
 
 
 customer_model = CustomerModel()
+
+shop_model = ShopModel()
 
 db = create_connection()
 
@@ -50,6 +55,10 @@ try:
 
     content = json.loads(json.dumps({"msisdn":"254707132162","lower_max": 0,"lower_min": 0}))
 
+
+    content = json.loads(json.dumps({"msisdn":"2547xxx","grand_total":"1200","cart":[{"product_id":"123456","qty":"1","name":"Key Chain","price":"150"}]}))
+
+
     #result = loan_model._record_unsecured_loan_request_api(content,db)
     #result = loan_model._record_secured_loan_request_api(content,db)
     #result = wallet_model._record_withdraw_transaction_api(content,db)
@@ -67,11 +76,33 @@ try:
 
 
     #-result = data_grid_model._shop_inventory_list_api(content,db)
-    rd = create_redis_connection()
-    print(redis_access_key())
-    key = redis_access_key()[3]+str("254707132162")
+    redis_helper = RedisHelper()
+    rd = redis_helper.create_redis_connection()
+    #---.print(redis_helper.redis_access_key())
+    #-.key = redis_access_key()[3]+str("254707132162")
     #-.read cache.
-    result = _read_redis_cache_api(key,rd)
+    #-.result = _read_redis_cache_api(key,rd)
+
+    #-.publish.
+    #---redis_helper._publish_redis("test_obj","This is a test message.22222222222222222222",rd)
+
+    #print(obj_msg.get_message()['data'])
+
+    #msg = obj_msg.get_message()
+
+    #print(obj_msg.get_message())
+
+    #print(obj_msg.get_message()['data'])
+
+    #obj_msg.unsubscribe()
+
+    #result = shop_model._record_shop_sale_api(content,db)
+    
+    #content = {"msisdn": "254707132162"}
+    #result = customer_model._get_customer_portfolio_api(content,db)
+
+    result = loan_model._get_loan_arrears_api("254707132162z",db)
+    
     print(result)
 except MySQLdb.Error, e:
     log.error(e)

@@ -239,7 +239,10 @@ class LoanDbHelper():
     -.method: log collateral information.
     -=================================================
     """
-    def _log_customer_collateral_info_db(self,msisdn,loan_amount,portfolio_worth,cover_as_fraction,conn):
+    def _log_customer_collateral_info_db(self,params,portfolio_worth,conn):
+        msisdn  = params.msisdn
+        loan_amount = params.amount
+        collateral_size = float(params.collateral_size)
         try:
             sql = """INSERT
                      INTO
@@ -249,7 +252,7 @@ class LoanDbHelper():
                      ('%s','%s','%s','%s')
                      ON
                      DUPLICATE KEY
-                     UPDATE `is_processed` = 0 """ % (msisdn,loan_amount,portfolio_worth,cover_as_fraction)
+                     UPDATE `is_processed` = 0 """ % (msisdn,loan_amount,portfolio_worth,collateral_size)
         
             params = ()
             db.execute_query(conn, sql, params)
@@ -295,3 +298,32 @@ class LoanDbHelper():
         except Exception, e:
             logger.error(e)
             raise
+
+
+    """
+    -=================================================
+    -.loan arrear amount.
+    -=================================================
+    """
+    def _get_loan_arrears_db(self,msisdn,conn):
+        loan_amount = 0.00
+        try:
+
+            sql = """
+                  SELECT
+                 `msisdn`,`loan_amount`
+                  FROM
+                 `db_freknur_general`.`tbl_loan_temp_list`
+                  WHERE
+                 `msisdn` = %s
+                  """
+            params = (msisdn,)
+            output = db.retrieve_all_data_params(conn,sql,params)
+            
+            for data in output:
+                loan_amount = data['loan_amount']
+        except Exception,e:
+            logger.error(e)
+            raise
+        
+        return loan_amount
