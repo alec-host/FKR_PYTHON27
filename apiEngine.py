@@ -2316,7 +2316,7 @@ def GenerateSaleList():
 #=====================================================================
 #-.route: add an inventory item. (web)
 #=====================================================================
-@app.route('/AddInventoryApi/', methods = ['GET', 'POST'])
+@app.route('/CreateInventoryItemApi/', methods = ['GET', 'POST'])
 @auto.doc(groups=['posts','public','private'])
 def AddInventory():
         "Add a new inventory item via dashboard."
@@ -2329,13 +2329,25 @@ def AddInventory():
                         resp = {"ERROR":"1","RESULT":"FAIL","MESSAGE":"GET method not allowed"}
                 elif(request.method == 'POST'):
                         if(request.data):
+
+                                shop_model = ShopModel()
+
                                 content = json.loads(request.data)
 
-                                resp = _create_inventory_record_api(content['name'],content['qty'],content['price'],db)
+                                que = Queue.Queue()
 
+                                t = Thread(target=lambda q,(arg1,arg2): q.put(shop_model._create_inventory_item_api(arg1,arg2)), args=(que,(content,db)))
+
+                                #_create_inventory_record_api(content,db)
+                                t.start()
+                                t.join()
+                                    
+                                #-.get redis key.
                                 key = redis_helper.redis_access_key()[5]+str("shop_catalogue")
                                 #-.reset cache.
                                 redis_helper._delete_from_redis_cache(key,rd)
+
+                                resp = que.get()
                         else:
                                 resp = {"ERROR":"1","RESULT":"FAIL" ,"MESSAGE":"sales recorded successful"}
                 return resp
@@ -2359,7 +2371,7 @@ def AddInventory():
 #=====================================================================
 #-.route: edit an inventory item. (web)
 #=====================================================================
-@app.route('/ModifySaleApi/', methods = ['GET', 'POST'])
+@app.route('/ModifyInventoryItemApi/', methods = ['GET', 'POST'])
 @auto.doc(groups=['posts','public','private'])
 def ModifySale():
         "Modify a sale entry via dashboard."
@@ -2372,9 +2384,21 @@ def ModifySale():
                         resp = {"ERROR":"1","RESULT":"FAIL","MESSAGE":"GET method not allowed"}
                 elif(request.method == 'POST'):
                         if(request.data):
+
+                                shop_model = ShopModel()
+
                                 content = json.loads(request.data)
 
-                                resp = _modify_sale_record_api(content['qty'],content['total'],content['product_uid'],db)
+                                que = Queue.Queue()
+
+                                t = Thread(target=lambda q,(arg1,arg2): q.put(shop_model._modify_inventory_item_api(arg1,arg2)), args=(que,(content,db)))
+
+                                #-resp = _modify_sale_record_api(content['qty'],content['total'],content['product_uid'],db)
+
+                                t.start()
+                                t.join()
+
+                                resp = que.get()
 
                                 key = redis_helper.redis_access_key()[5]+str("shop_catalogue")
                                 #-.reset cache.
