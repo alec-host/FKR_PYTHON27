@@ -2439,14 +2439,27 @@ def PostInventoryImagePath():
                         resp = {"ERROR":"1","RESULT":"FAIL","MESSAGE":"GET method not allowed"}
                 elif(request.method == 'POST'):
                         if(request.data):
-                                content = json.loads(request.data)
-                                resp = _save_inventory_image_path_api(content['uid'],unquote(content['path']),db)
+                                
+                                shop_model = ShopModel()
 
+                                content = json.loads(request.data)
+
+                                que = Queue.Queue()
+
+                                t = Thread(target=lambda q,(arg1,arg2): q.put(shop_model._post_inventory_item_image_path_api(arg1,arg2)), args=(que,(content,db)))
+
+                                #-resp = _save_inventory_image_path_api(content['uid'],unquote(content['path']),db)
+
+                                t.start()
+                                t.join()
+
+                                resp = que.get()
+                                
                                 key = redis_helper.redis_access_key()[5]+str("shop_catalogue")
                                 #-.reset cache.
                                 redis_helper._delete_from_redis_cache(key,rd)
                         else:
-                                resp = {"ERROR":"1","RESULT":"FAIL" ,"MESSAGE":"modification successful"}
+                                resp = {"ERROR":"1","RESULT":"FAIL" ,"MESSAGE":"Operation has failed."}
                 return resp
         except MySQLdb.Error, e:
                 log.error(e)

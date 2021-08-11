@@ -8,6 +8,10 @@ import json
 import uuid
 
 import Shop
+import Image
+
+
+from urllib import unquote
 
 from db_helper import _get_user_db,_get_customer_bal_db
 
@@ -52,6 +56,23 @@ class ShopModel():
             j_string = {"ERROR":"1","RESULT":"FAIL","MESSAGE":"The operation has failed"}
 
         return j_string
+
+    """
+    -=================================================
+    -.method: update inventory item image path.
+    -=================================================
+    """
+    def _post_inventory_item_image_path_api(self,content,conn):
+
+        j_string = None
+        if(content):
+            shop_db_helper = ShopDbHelper()
+            #-.routine call.
+            j_string = shop_db_helper._post_inventory_item_image_path_db(Image.Image(content['uid'],unquote(content['path'])),conn)
+        else:
+            j_string = {"ERROR":"1","RESULT":"FAIL","MESSAGE":"The operation has failed"}
+
+        return j_string    
             
     """
     -=================================================

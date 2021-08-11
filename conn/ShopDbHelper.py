@@ -105,6 +105,42 @@ class ShopDbHelper():
 
         return j_string
 
+
+    """
+    -=================================================
+    -.save image path.
+    -=================================================
+    """
+    def _post_inventory_item_image_path_db(self,content,conn):
+        j_string = None
+        date = datetime.now().strftime('%Y-%m-%d %H:%M:%S')
+        uid = content.uid
+        path = content.path 
+        try:
+            sql = """
+                  UPDATE
+                 `db_freknur_inventory`.`tbl_inventory`
+                  SET
+                 `item_image` = '%s',
+                 `date_modified` = '%s'
+                  WHERE
+                 `item_uid` = '%s'
+                  """ % (path,date,uid)
+
+            params = ()
+
+            db.execute_query(conn, sql, params)
+
+            j_string = {"ERROR":"0","RESULT":"SUCCESS","MESSAGE":"Image path has been updated."}
+
+            conn.commit()
+
+        except Exception,e:
+            logger.error(e)
+            raise
+
+        return j_string
+
     """
     -=================================================
     -.create new customer.
