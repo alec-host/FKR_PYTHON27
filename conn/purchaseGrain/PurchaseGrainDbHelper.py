@@ -6,25 +6,17 @@ developer skype: alec_host
 
 import os
 import sys
-import time
-import signal
 import json
-import eventlet
 import logging
 import MySQLdb
 import MySQLdb.cursors
 
-import redis
-
 from datetime import datetime
 
-from RedisHelper import RedisHelper
-
+sys.path.append('/usr/local/lib/freknur/engine/conn')
 from db_helper import _get_last_insert_id_db,_acitivity_log_db
 from configs.freknur_settings import logger,mysql_params
 from db_conn import DB,NoResultException
-
-eventlet.monkey_patch()
 
 db = DB()
 
@@ -139,15 +131,6 @@ class PurchaseGrainDbHelper():
             redis_helper = RedisHelper()
 
             rd = redis_helper.create_redis_connection()
-
-            #-.get keys.
-            key_1 = redis_helper.redis_access_key()[0]+str(msisdn)
-            key_2 = redis_helper.redis_access_key()[1]+str(msisdn)
-            key_3 = redis_helper.redis_access_key()[2]+str(msisdn)
-            #-.reset cache.
-            redis_helper._delete_from_redis_cache(key_1,rd)
-            redis_helper._delete_from_redis_cache(key_2,rd)
-            redis_helper._delete_from_redis_cache(key_3,rd)
 
             for data in output:
                 j_string = json.loads(data.get('_JSON'))

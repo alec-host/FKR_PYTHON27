@@ -26,8 +26,6 @@ from db_conn import DB,NoResultException,NoServiceIDException
 
 from json_tricks import dumps
 
-from utils import date_time_encoder
-
 eventlet.monkey_patch()
 
 db = DB()
@@ -672,7 +670,38 @@ def _get_user_db(msisdn,conn):
                       FROM
                      `db_freknur_loan`.`tbl_wallet`
                       WHERE
-                     `msisdn` = %s
+                     `msisdn` = %s 
+                      """
+
+                param = (msisdn,)
+
+                output = db.retrieve_all_data_params(conn,sql,param)
+
+                for data in output:
+                        size = data['CNT']
+
+        except Exception,e:
+                logger.error(e)
+                raise
+
+        return size
+
+
+"""
+-=================================================
+-.user suspended?
+-=================================================
+"""
+def _is_wallet_suspended_db(msisdn,conn):
+        size = 0
+        try:
+                sql = """
+                      SELECT
+                      COUNT(`id`) AS CNT
+                      FROM
+                     `db_freknur_loan`.`tbl_wallet`
+                      WHERE
+                     `msisdn` = %s AND `is_suspended` = '1'
                       """
 
                 param = (msisdn,)

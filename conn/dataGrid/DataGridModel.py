@@ -5,6 +5,7 @@ developer skype: alec_host
 """
 
 import os
+import sys
 
 import DataGrid
 
@@ -227,5 +228,22 @@ class DataGridModel():
             #-.routine call.
             j_string = data_grid_db_helper._get_asset_config_list_db(DataGrid.DataGrid(content['search'],content['lower_min'],content['lower_max'],0,0),conn)
 
-        return j_string 
+        return j_string
 
+
+    """
+    -=================================================
+    -.method: asset configuration list.
+    -=================================================
+    """
+    def _get_asset_list_api(self,content,conn):
+
+        j_string = None
+
+        data_grid_db_helper = DataGridDbHelper()
+
+        if(conn is not None):
+            #-.routine call.
+            j_string = data_grid_db_helper._get_asset_list_db(DataGrid.DataGrid(content['search'],content['lower_min'],content['lower_max'],0,0),conn)
+
+        return j_string

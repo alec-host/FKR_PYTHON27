@@ -3,22 +3,19 @@
 """
 developer skype: alec_host
 """
+import os
+import sys
 import ast
 import json
-import eventlet
 import logging
 import decimal
 import MySQLdb
 import MySQLdb.cursors
 
-import redis
-
+sys.path.append('/usr/local/lib/freknur/engine/conn')
 from Utils import Utils
-from RedisHelper import RedisHelper
 from configs.freknur_settings import logger,mysql_params
 from db_conn import DB,NoResultException
-
-eventlet.monkey_patch()
 
 db = DB()
 
@@ -40,19 +37,27 @@ class DataGridDbHelper():
             if(str(search) == '0'):
                 qry = """
                       SELECT
-                      `_id`,`msisdn`,`first_name`,`second_name`,`birth_date`,`mail`,`country_code`,CONCAT("",`time_stamp`,"") AS time_stamp
+                      A.`_id`,A.`msisdn`,A.`first_name`,A.`second_name`,A.`birth_date`,A.`mail`,A.`country_code`,CONCAT("",A.`time_stamp`,"") AS time_stamp,B.`is_suspended`
                       FROM
-                      `db_freknur_loan`.`tbl_wallet_extra`
+                      `db_freknur_loan`.`tbl_wallet_extra` A
+                      INNER JOIN
+                      `db_freknur_loan`.`tbl_wallet` B
+                      ON
+                      A.`msisdn` = B.`msisdn`
                       LIMIT %i, %i
                       """ % (int(lower_limit),int(upper_limit))
             else:
                 qry = """
                       SELECT
-                      `_id`,`msisdn`,`first_name`,`second_name`,`birth_date`,`mail`,`country_code`,CONCAT("",`time_stamp`,"") AS time_stamp
+                      A.`_id`,A.`msisdn`,A.`first_name`,A.`second_name`,A.`birth_date`,A.`mail`,A.`country_code`,CONCAT("",A.`time_stamp`,"") AS time_stamp,B.`is_suspended`
                       FROM
-                      `db_freknur_loan`.`tbl_wallet_extra`
+                      `db_freknur_loan`.`tbl_wallet_extra` A
+                      INNER JOIN
+                      `db_freknur_loan`.`tbl_wallet` B
+                      ON
+                      A.`msisdn` = B.`msisdn`
                       WHERE
-                      `msisdn` = '%s'
+                      A.`msisdn` = '%s'
                       LIMIT %i, %i
                       """ % (search,int(lower_limit),int(upper_limit))
 
@@ -220,7 +225,7 @@ class DataGridDbHelper():
             if(str(search) == '0'):
                 sql = """
                       SELECT
-                     `id`,`reference_no`,`msisdn`,`amount_requested`,`amount_disbursed`,`repayment_amount`,CONCAT("",`repayment_date`,"") AS repayment_date,
+                     `id`,`reference_no`,`msisdn`,`amount_requested`,`amount_disbursed`,`repayment_amount`,CONCAT("",`repayment_date`,"") AS repayment_date,CONCAT("",`expected_repayment_date`,"") AS expected_repayment_date,
                       CONCAT("",`date_created`,"") AS date_created
                       FROM
                      `tbl_debtor`
@@ -233,7 +238,7 @@ class DataGridDbHelper():
             else:
                 sql = """
                       SELECT
-                     `id`,`reference_no`,`msisdn`,`amount_requested`,`amount_disbursed`,`repayment_amount`,CONCAT("",`repayment_date`,"") AS repayment_date,
+                     `id`,`reference_no`,`msisdn`,`amount_requested`,`amount_disbursed`,`repayment_amount`,CONCAT("",`repayment_date`,"") AS repayment_date,CONCAT("",`expected_repayment_date`,"") AS expected_repayment_date,
                       CONCAT("",`date_created`,"") AS date_created
                       FROM
                      `tbl_debtor`
@@ -710,4 +715,43 @@ class DataGridDbHelper():
             logger.error(e)
             raise
         
+        return j_string
+
+
+    """
+    -=================================================
+    -.asset list.
+    -=================================================
+    """
+    def _get_asset_list_db(self,this,conn):
+        status  = 0
+        j_string = None
+        
+        search = this.search
+        lower_limit = this.lower_limit
+        upper_limit = this.upper_limit
+
+        try:
+            sql = """
+                      SELECT
+                     `_id`,`uid`,`asset_acronym`,`asset_name`,`unit_price`,CONCAT("",`total`,"") AS total,`asset_trend`,CONCAT("",`date_created`,"") AS date_created,CONCAT("",`date_modified`,"") AS date_modified
+                      FROM
+                     `db_freknur_investment`.`tbl_asset`
+                      LIMIT %i, %i
+                  """ % (int(lower_limit),int(upper_limit))
+
+            params = ()
+            
+            recordset = db.retrieve_all_data_params(conn,sql,params)
+            
+            jsonArray = ast.literal_eval(json.dumps(recordset))
+            
+            jsonArraySize = len(jsonArray)
+            
+            j_string = json.dumps({"Result":"OK","Records":recordset,"TotalRecordCount":str(jsonArraySize)})
+
+        except Exception,e:
+            logger.error(e)
+            raise
+
         return j_string

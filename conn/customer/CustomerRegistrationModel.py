@@ -5,12 +5,14 @@ developer skype: alec_host
 """
 
 import os
+import sys
 
 import Customer
 
+import CustomerRegistrationDbHelper
 
+sys.path.append('/usr/local/lib/freknur/engine/conn')
 from db_helper import _get_user_db,_get_customer_bal_db
-from CustomerRegistrationDbHelper import CustomerRegistrationDbHelper
 from Utils import Utils
 
 class CustomerRegistrationModel():

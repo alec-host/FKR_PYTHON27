@@ -6,24 +6,19 @@ developer skype: alec_host
 
 import os
 import sys
-import time
-import signal
 import json
-import eventlet
 import logging
 import MySQLdb
 import MySQLdb.cursors
 
 from datetime import datetime
 
+sys.path.append('/usr/local/lib/freknur/engine/conn')
 from db_helper import _get_user_db,_get_uid_db
 from configs.freknur_settings import logger,mysql_params
 from db_conn import DB,NoResultException
 
-eventlet.monkey_patch()
-
 db = DB()
-
 
 class CustomerDbHelper():
 

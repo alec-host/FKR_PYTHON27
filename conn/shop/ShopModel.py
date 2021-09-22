@@ -3,6 +3,7 @@
 developer skype: alec_host
 """
 import os
+import sys
 import ast
 import json
 import uuid
@@ -10,15 +11,13 @@ import uuid
 import Shop
 import Image
 
-
 from urllib import unquote
 
+sys.path.append('/usr/local/lib/freknur/engine/conn')
 from db_helper import _get_user_db,_get_customer_bal_db
-
-from conn.RedisHelper import RedisHelper
-from conn.ShopDbHelper import ShopDbHelper
-from conn.configs.freknur_settings import redis_pubsub_params
-
+from RedisHelper import RedisHelper
+from ShopDbHelper import ShopDbHelper
+from configs.freknur_settings import redis_pubsub_params
 from Utils import Utils
 
 class ShopModel():

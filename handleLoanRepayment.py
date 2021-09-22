@@ -9,7 +9,7 @@ import logging
 import signal
 import Queue
 
-from conn.LoanModel import LoanModel
+from conn.loan.LoanModel import LoanModel
 
 from conn.model import _loan_payment_sys,_read_payment_list_sys,_acitivity_log_sys,_delete_from_redis_cache_api
 from conn.configs.freknur_settings import loan_params,accounting_params

@@ -6,24 +6,18 @@ developer skype: alec_host
 
 import os
 import sys
-import time
-import signal
 import json
-import eventlet
 import logging
 import MySQLdb
 import MySQLdb.cursors
 
-import redis
-
 from datetime import datetime
 
+sys.path.append('/usr/local/lib/freknur/engine/conn')
 from RedisHelper import RedisHelper
 from db_helper import _acitivity_log_db
 from configs.freknur_settings import logger,mysql_params
 from db_conn import DB,NoResultException
-
-eventlet.monkey_patch()
 
 db = DB()
 
@@ -127,3 +121,54 @@ class WalletDbHelper():
             raise
         
         return j_string
+
+
+    """
+    -=================================================
+    -.method:deactivate wallete a/c..
+    -=================================================
+    """
+    def _suspend_wallet_account_db(self,this,conn):
+        msisdn = this.msisdn
+        try:
+            sql = """
+                  UPDATE
+                 `db_freknur_loan`.`tbl_wallet`
+                  SET
+                 `is_suspended` = 1
+                  WHERE
+                 `msisdn` = %s AND `is_suspended` = 0
+                  """
+            params = (msisdn,)
+            
+            db.execute_query(conn, sql, params)
+            
+            conn.commit()
+        except Exception, e:
+            logger.error(e)
+            raise
+
+    """
+    -=================================================
+    -.method:activate wallete a/c..
+    -=================================================
+    """
+    def _unsuspend_wallet_account_db(self,this,conn):
+        msisdn = this.msisdn
+        try:
+            sql = """
+                  UPDATE
+                 `db_freknur_loan`.`tbl_wallet`
+                  SET
+                 `is_suspended` = 0
+                  WHERE
+                 `msisdn` = %s AND `is_suspended` = 1
+                  """
+            params = (msisdn,)
+
+            db.execute_query(conn, sql, params)
+
+            conn.commit()
+        except Exception, e:
+            logger.error(e)
+            raise

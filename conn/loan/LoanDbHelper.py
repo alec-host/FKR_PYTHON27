@@ -6,23 +6,17 @@ developer skype: alec_host
 
 import os
 import sys
-import time
-import signal
 import json
-import eventlet
 import logging
 import MySQLdb
 import MySQLdb.cursors
 
-import redis
-
 from datetime import datetime
 
+sys.path.append('/usr/local/lib/freknur/engine/conn')
 from RedisHelper import RedisHelper
 from configs.freknur_settings import logger,mysql_params
 from db_conn import DB,NoResultException
-
-eventlet.monkey_patch()
 
 db = DB()
 
@@ -327,3 +321,70 @@ class LoanDbHelper():
             raise
         
         return loan_amount
+
+
+    """
+    -=================================================
+    -.method: screen a loan request.
+    -=================================================
+    """
+    def _vet_loan_request_db(self,params,conn):
+
+        _flag = 2
+        date = datetime.now().strftime('%Y-%m-%d %H:%M:%S')
+        j_string = None
+
+        reference_no = params.uid
+        msisdn = params.msisdn
+        approved_by = params.approved_by
+        remarks = params.remarks
+        head = params.action_header
+
+        try:
+            sql = """
+                  UPDATE
+                 `db_freknur_loan`.`tbl_loan_request`
+                  SET
+                 `task_flag` = %s,
+                 `approved_by` = '%s',
+                 `date_modified` = '%s'
+                  WHERE
+                 `reference_no` = '%s' AND `msisdn` = '%s' AND `is_processed` = '0'
+                  """ % (_flag,approved_by,date,reference_no,msisdn)
+
+            params = ()
+            db.execute_query(conn,sql,params)
+            
+            j_string = {"ERROR":"0","RESULT":"SUCCESS","MESSAGE":"Loan approval successful."}
+            
+            conn.commit()
+        except Exception, e:
+            logger.error(e)
+            raise
+
+        return j_string
+
+
+    """
+    -=================================================
+    -.method: reject loan request.
+    -=================================================
+    """
+    def _log_rejected_loan_request_db(self,params,conn):
+
+        j_string = None
+        msisdn = params.msisdn
+        remarks = params.remarks
+        try:
+            sql = """CALL """+mysql_params['db']+""".`sProcLogRejectedLoanRequest`(%s,%s)"""
+            params = (msisdn,remarks,)
+            output = db.retrieve_all_data_params(conn,sql,params)
+            for data in output:
+                j_string = json.loads(data.get('_JSON'))
+
+                #conn.commit()
+        except Exception, e:
+            logger.error(e)
+            raise
+
+        return j_string

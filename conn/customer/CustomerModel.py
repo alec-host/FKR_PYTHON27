@@ -5,10 +5,11 @@ developer skype: alec_host
 """
 
 import os
+import sys
 
 import Customer
 
-
+sys.path.append('/usr/local/lib/freknur/engine/conn')
 from db_helper import _get_user_db,_get_uid_db,_get_customer_bal_db
 from CustomerDbHelper import CustomerDbHelper
 

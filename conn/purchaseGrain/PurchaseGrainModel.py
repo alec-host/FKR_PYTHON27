@@ -4,13 +4,14 @@ developer skype: alec_host
 """
 
 import os
+import sys
 
 import PurchaseGrain
 
-
-from db_helper import _get_user_db,_get_customer_bal_db,_existing_purchase_request,_del_processed_purchase_request,_get_handling_fee_db,_get_asset_master_db,_alternate_existing_request
+sys.path.append('/usr/local/lib/freknur/engine/conn')
+from RedisHelper import RedisHelper
+from db_helper import _get_user_db,_is_wallet_suspended_db,_get_customer_bal_db,_existing_purchase_request,_del_processed_purchase_request,_get_handling_fee_db,_get_asset_master_db,_alternate_existing_request
 from PurchaseGrainDbHelper import PurchaseGrainDbHelper
-
 
 class PurchaseGrainModel():
     """
@@ -34,6 +35,8 @@ class PurchaseGrainModel():
         #-.routine call.
         user_exist = _get_user_db(content['msisdn'],conn)
         #-.routine call.
+        is_wallet_suspended = _is_wallet_suspended_db(content['msisdn'],conn)
+        #-.routine call.
         asset_data = _get_asset_master_db(content['uid'],conn)
         #-.routine call.
         unprocessed_cnt = _existing_purchase_request(content['msisdn'],content['uid'],"0",conn)
@@ -47,10 +50,14 @@ class PurchaseGrainModel():
                 if(float(balance) >= float(content['cost'])):
                     if(int(unprocessed_cnt) == 0):
                         if(int(user_exist) == 1):
-                            #-.routine call.
-                            output = purchase_grain_db_helper._record_purchase_request_db(PurchaseGrain.PurchaseGrain(content['uid'],content['msisdn'],content['description'],content['price'],content['no_of_unit'],content['cost'],SYSTEM_LOG_MSG),conn)
-                            if(int(output) > 0):
-                                j_string = {"ERROR":"0","RESULT":"SUCCESS","MESSAGE":"Request has been received & queued for processing."}
+                            if(int(is_wallet_suspended) == 0):
+                                #-.routine call.
+                                output = purchase_grain_db_helper._record_purchase_request_db(PurchaseGrain.PurchaseGrain(content['uid'],content['msisdn'],content['description'],content['price'],\
+                                                                                              content['no_of_unit'],content['cost'],SYSTEM_LOG_MSG),conn)
+                                if(int(output) > 0):
+                                    j_string = {"ERROR":"0","RESULT":"SUCCESS","MESSAGE":"Request has been received & queued for processing."}
+                            else:
+                                j_string = {"ERROR":"1","RESULT":"FAIL","MESSAGE":"You account has been suspended."}
                         else:
                             j_string = {"ERROR":"1","RESULT":"FAIL","MESSAGE":"User does not exist."}
                     else:
@@ -90,7 +97,8 @@ class PurchaseGrainModel():
             if(float(content['no_of_unit']) >= float(lower) and float(content['no_of_unit']) <= float(upper)):
                 if(int(unprocessed_cnt) == 0):
                     if(float(balance) >= float(content['cost'])):
-                        output = purchase_grain_db_helper._record_alt_purchase_request_db(PurchaseGrain.PurchaseGrain(content['uid'],content['msisdn'],content['description'],content['price'],content['no_of_unit'],content['cost'],SYSTEM_LOG_MSG),conn)
+                        output = purchase_grain_db_helper._record_alt_purchase_request_db(PurchaseGrain.PurchaseGrain(content['uid'],content['msisdn'],content['description'],content['price'],\
+                                                                                          content['no_of_unit'],content['cost'],SYSTEM_LOG_MSG),conn)
                         if(int(output) > 0):
                             j_string = {"ERROR":"0","RESULT":"SUCCESS","MESSAGE":"Request has been received."}
                     else:
@@ -114,8 +122,23 @@ class PurchaseGrainModel():
 
         SYSTEM_LOG_MSG = "PURCHASE OF "+str(content['qty'])+" "+str(content['name'])+" "+"SHARES IN ALTERNATIVE MARKET @ COST OF "+str((float(content['price']) * float(content['qty'])))+" HAS BEEN MADE."
 
+        redis_helper = RedisHelper()
+
+        rd = redis_helper.create_redis_connection()
+
+        #-.get keys.
+        key_1 = redis_helper.redis_access_key()[0]+str(content['msisdn'])
+        key_2 = redis_helper.redis_access_key()[1]+str(content['msisdn'])
+        key_3 = redis_helper.redis_access_key()[2]+str(content['msisdn'])
+        #-.reset cache.
+        redis_helper._delete_from_redis_cache(key_1,rd)
+        redis_helper._delete_from_redis_cache(key_2,rd)
+        redis_helper._delete_from_redis_cache(key_3,rd)
+
         purchase_grain_db_helper = PurchaseGrainDbHelper()
         
-        j_string = purchase_grain_db_helper._handle_processing_alt_purchase_request_db(PurchaseGrain.PurchaseGrain(content['uid'],content['msisdn'],content['name'],content['price'],content['qty'],content['cost'],SYSTEM_LOG_MSG),wallet_bal,fee_earned,conn)        
+        j_string = purchase_grain_db_helper._handle_processing_alt_purchase_request_db(PurchaseGrain.PurchaseGrain(content['uid'],content['msisdn'],content['name'],\
+                                                                                       content['price'],content['qty'],content['cost'],SYSTEM_LOG_MSG),wallet_bal,fee_earned,conn)
+
 
         return j_string

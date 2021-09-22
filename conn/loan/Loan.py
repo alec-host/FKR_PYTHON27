@@ -1,4 +1,4 @@
-#!/usr/bin/python27
+#!/usr/bin/python
 
 class Loan():
     def __init__(self,uid,msisdn,amount,collateral_size,has_collateral):

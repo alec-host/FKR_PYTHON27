@@ -22,30 +22,26 @@ from tornado.wsgi import WSGIContainer
 from tornado.httpserver import HTTPServer
 from tornado.ioloop import IOLoop
 
-from conn.model import _record_unsecured_loan_request_api,_get_loan_request_list_api,_get_loan_dispatch_list_api,_vet_loan_request_api,\
-                       _registration_api,_get_comprehensive_wallet_statement_api,_get_general_account_list_api,_get_debtor_list_api,_get_defaulter_list_api,\
-                       _get_account_summary_api,_withdraw_electronic_cash_api,_get_customer_bal_api,_get_loan_arrears_api,_PAYMENT_TEST_sys,\
-                       _get_asset_list_api,_add_new_asset_api,_add_purchase_request_api,_add_sale_request_api,_modify_asset_api,\
-                       _get_asset_config_list_api,_get_asset_trend_list_api,_get_customer_portfolio_api,_create_asset_config_api,_get_sale_request_list_api,\
-                       _get_bid_list_api,_get_asset_config_params_api,_modify_asset_config_api,_place_bid_api,_get_accepted_bid_api,_accept_bid_api,\
-                       _read_redis_cache_api,_save_to_redis_cache_api,_delete_from_redis_cache_api,_acitivity_log_sys,_get_activity_log_api,\
-                       _purchase_on_alternate_market_api,_inventory_list_api,_get_sales_record_list_api,_create_inventory_record_api,\
-                       _modify_sale_record_api,_record_secured_loan_request_api,_get_loan_settings_configs_api,_peer_wallet_transfer_api,\
-                       _delete_own_sell_requet_api,_get_customer_list_api,_wallet_deposit_api,_save_inventory_image_path_api,_get_mini_loan_statement_api,\
-                       _get_mini_asset_statement_api
+from conn.model import _PAYMENT_TEST_sys,_wallet_deposit_api,\
+                       _get_loan_settings_configs_api,_get_asset_trend_list_api,_accept_bid_api,_get_accepted_bid_api,_get_bid_list_api,_place_bid_api,\
+                       _modify_asset_api,_add_new_asset_api,_get_customer_list_api,_get_asset_list_api
                        
 from conn.db_helper import create_connection,close_connection,NoResultException,create_redis_connection,redis_access_key
 
-
 from conn.RedisHelper import RedisHelper
 
-from conn.LoanModel import LoanModel
-from conn.WalletModel import WalletModel
-from conn.PurchaseGrainModel import PurchaseGrainModel
-from conn.SellGrainModel import SellGrainModel
-from conn.DataGridModel import DataGridModel
-from conn.CustomerModel import CustomerModel
-from conn.ShopModel import ShopModel
+from conn.dataGrid.DataGridModel import DataGridModel
+from conn.customer.CustomerModel import CustomerModel
+
+from conn.loan.LoanModel import LoanModel
+from conn.wallet.WalletModel import WalletModel
+from conn.sellGrain.SellGrainModel import SellGrainModel
+from conn.purchaseGrain.PurchaseGrainModel import PurchaseGrainModel
+from conn.shop.ShopModel import ShopModel
+from conn.frk.FRKTokenModel import FRKTokenModel
+from conn.helperUtils.JsonAddElement import JsonElementManager
+from conn.assetConf.AssetConfModel import AssetConfModel
+
 #-pip install tornado.
 
 log = logging.getLogger()
@@ -53,7 +49,6 @@ log = logging.getLogger()
 app = Flask(__name__)
 
 auto = Autodoc(app)
-
 
 class Post():
         def __init__(dself, title, content, author):
@@ -99,8 +94,6 @@ def UnsecuredLoanApi():
                                 que = Queue.Queue()
 
                                 t = Thread(target=lambda q,(arg1,arg2): q.put(loan_model._record_unsecured_loan_request_api(arg1,arg2)), args=(que,(content,db)))
-
-				#-.resp = loan_model._record_unsecured_loan_request_api(content,db)
 
                                 t.start()
                                 t.join()
@@ -148,8 +141,6 @@ def Registration():
                                 que = Queue.Queue()
 
                                 t = Thread(target=lambda q,(arg1,arg2): q.put(customer_model._registration_api(arg1,arg2)), args=(que,(content,db)))
-
-				#-.resp = _registration_api(content,db)
 
                                 t.start()
                                 t.join()
@@ -201,7 +192,7 @@ def ComprenhensiveWalletStatement():
                                 #-.read cache.
                                 cache = redis_helper._read_redis_cache(key,rd)
                                     
-                                if(cache == "null" or cache is None):
+                                if(cache is None):
 
                                         customer_model = CustomerModel()
 
@@ -257,14 +248,12 @@ def LoanMiniStatement():
                             
                                 msisdn = request.data
 
-                                #-.resp = _get_mini_loan_statement_api(msisdn,db)
-
                                 key = redis_helper.redis_access_key()[3]+str(msisdn)
 
                                 #-.read cache.
                                 cache = redis_helper._read_redis_cache(key,rd)
 
-                                if(cache == "null" or cache is None):
+                                if(cache is None):
 
                                         customer_model = CustomerModel()
 
@@ -320,14 +309,12 @@ def AssetMiniStatement():
                                 msisdn  = request.args.get('msisdn')
                                 msisdn = request.data
 
-                                #-.resp = _get_mini_asset_statement_api(msisdn,db)
-
                                 key = redis_helper.redis_access_key()[2]+str(msisdn)
                     
                                 #-.read cache.
                                 cache = redis_helper._read_redis_cache(key,rd)
 
-                                if(cache == "null" or cache is None):
+                                if(cache is None):
 
                                         customer_model = CustomerModel()
 
@@ -386,7 +373,7 @@ def CurrentWalletBalance():
                                 #-.read cache.
                                 cache = redis_helper._read_redis_cache(key,rd)
 
-                                if(cache == "null" or cache is None):
+                                if(cache is None):
 
                                         customer_model = CustomerModel()
 
@@ -423,470 +410,6 @@ def CurrentWalletBalance():
                 except MySQLdb.Error, e:
                         log.error(e)
 
-
-#=====================================================================
-#-.route: loan request list(web)
-#=====================================================================
-@app.route('/GenerateLoanRequestListApi/', methods = ['GET', 'POST'])
-@auto.doc(groups=['get','public','private'])
-def GenerateLoanRequestList():
-        "Generate loan request list."
-	db = create_connection()
-	try:
-		if(request.method == 'POST'):
-			resp = {"ERROR":"1","RESULT":"FAIL","MESSAGE":"POST method not allowed"}
-		elif(request.method == 'GET'):
-
-                        data_grid_model = DataGridModel()
-
-			search = request.args.get('search')
-			lower_max = request.args.get('max')
-			lower_min = request.args.get('min')
-
-                        content = {"search": search,"lower_max": int(lower_max),"lower_min": int(lower_min)}
-		        
-                        que = Queue.Queue()
-
-                        t = Thread(target=lambda q,(arg1,arg2): q.put(data_grid_model._get_loan_request_list_api(arg1,arg2)), args=(que,(content,db)))
-
-			#resp = data_grid_model._get_loan_request_list_api(content,db)
-
-                        t.start()
-                        t.join()
-
-                        resp = que.get()
-					
-		return resp
-	except MySQLdb.Error, e:
-		log.error(e)
-	except Exception, e:
-		log.error(e)
-	finally:
-		try:
-			if(not db):
-				exit(0)
-			else:
-				"""
-				close MySQL connection.
-				"""			
-				close_connection(db)
-		except MySQLdb.Error, e:
-			log.error(e)
-
-		    
-#=====================================================================
-#-.route: dispatch loan list(web)
-#=====================================================================
-@app.route('/GenerateDispatchedLoanApi/', methods = ['GET', 'POST'])
-@auto.doc(groups=['get','public','private'])
-def GenerateDispatchedLoan():
-        "Generate dispatched loan list."
-	db = create_connection()
-	try:
-		if(request.method == 'POST'):
-			resp = {"ERROR":"1","RESULT":"FAIL","MESSAGE":"POST method not allowed"}
-		elif(request.method == 'GET'):
-
-                        data_grid_model = DataGridModel()
-
-			search = request.args.get('flag')
-			lower_max = request.args.get('max')
-			lower_min = request.args.get('min')
-
-                        content = {"search": search,"lower_max": int(lower_max),"lower_min": int(lower_min)}
-
-
-                        que = Queue.Queue()
-
-                        t = Thread(target=lambda q,(arg1,arg2): q.put(data_grid_model._get_loan_dispatch_list_api(arg1,arg2)), args=(que,(content,db)))                        
-			
-                	#-.resp = data_grid_model._get_loan_dispatch_list_api(content,db)
-
-                        t.start()
-                        t.join()
-
-                        resp = que.get()
-					
-		return resp
-	except MySQLdb.Error, e:
-		log.error(e)
-	except Exception, e:
-		log.error(e)
-	finally:
-		try:
-			if(not db):
-				exit(0)
-			else:
-				"""
-				close MySQL connection.
-				"""			
-				close_connection(db)
-		except MySQLdb.Error, e:
-			log.error(e)
-			
-
-#=====================================================================
-#-.route: general accounts(web)
-#=====================================================================
-@app.route('/GenerateGeneralAccountListApi/', methods = ['GET', 'POST'])
-@auto.doc(groups=['get','public','private'])
-def GenerateGeneralAccountList():
-        "Generate general accounts list via dashboard."
-	db = create_connection()
-	try:
-		if(request.method == 'POST'):
-			resp = {"ERROR":"1","RESULT":"FAIL","MESSAGE":"POST method not allowed"}
-		elif(request.method == 'GET'):
-
-                        data_grid_model = DataGridModel()
-
-			code = request.args.get('account_code')
-			lower_max = request.args.get('max')
-			lower_min = request.args.get('min')
-			search = request.args.get('search')
-
-                        content = {"search": search,"lower_max": int(lower_max),"lower_min": int(lower_min),"code": str(code)}
-
-                        que = Queue.Queue()
-
-                        t = Thread(target=lambda q,(arg1,arg2): q.put(data_grid_model._get_general_account_list_api(arg1,arg2)), args=(que,(content,db)))
-
-			#-.resp = data_grid_model._get_general_account_list_api(content,db)
-
-                        t.start()
-                        t.join()
-
-                        resp = que.get()
-					
-		return resp
-	except MySQLdb.Error, e:
-		log.error(e)
-	except Exception, e:
-		log.error(e)
-	finally:
-		try:
-			if(not db):
-				exit(0)
-			else:
-				"""
-				close MySQL connection.
-				"""			
-				close_connection(db)
-		except MySQLdb.Error, e:
-			log.error(e)
-
-
-#=====================================================================
-#-.route: debtor list(web)
-#=====================================================================
-@app.route('/GenerateDebtorListApi/', methods = ['GET', 'POST'])
-@auto.doc(groups=['get','public','private'])
-def GenerateDebtorList():
-        "Generate debtor list via the dashboard."
-	db = create_connection()
-	try:
-		if(request.method == 'POST'):
-			resp = {"ERROR":"1","RESULT":"FAIL","MESSAGE":"POST method not allowed"}
-		elif(request.method == 'GET'):
-
-                        data_grid_model = DataGridModel()
-
-			search = request.args.get('flag')
-			lower_max = request.args.get('max')
-			lower_min = request.args.get('min')
-
-                        content = {"search": search,"lower_max": int(lower_max),"lower_min": int(lower_min)}
-
-                        que = Queue.Queue()
-
-                        t = Thread(target=lambda q,(arg1,arg2): q.put(data_grid_model._get_debtor_list_api(arg1,arg2)), args=(que,(content,db)))
-
-			#-.resp = data_grid_model._get_debtor_list_api(content,db)
-
-                        t.start()
-                        t.join()
-
-                        resp = que.get()
-					
-		return resp
-	except MySQLdb.Error, e:
-		log.error(e)
-	except Exception, e:
-		log.error(e)
-	finally:
-		try:
-			if(not db):
-				exit(0)
-			else:
-				"""
-				close MySQL connection.
-				"""			
-				close_connection(db)
-		except MySQLdb.Error, e:
-			log.error(e)
-
-
-#=====================================================================
-#-.route: defaulter list(web)
-#=====================================================================
-@app.route('/GenerateDefaulterListApi/', methods = ['GET', 'POST'])
-@auto.doc(groups=['get','public','private'])
-def GenerateDefaulterList():
-	db = create_connection()
-	try:
-		if(request.method == 'POST'):
-			resp = {"ERROR":"1","RESULT":"FAIL","MESSAGE":"POST method not allowed"}
-		elif(request.method == 'GET'):
-
-                        data_grid_model = DataGridModel()
-
-			search= request.args.get('flag')
-			lower_max  = request.args.get('max')
-			lower_min  = request.args.get('min')
-
-                        content = {"search": search,"lower_max": int(lower_max),"lower_min": int(lower_min)}
-
-                        que = Queue.Queue()
-
-                        t = Thread(target=lambda q,(arg1,arg2): q.put(data_grid_model._get_defaulter_list_api(arg1,arg2)), args=(que,(content,db)))
-			
-			#-.resp = data_grid_model._get_defaulter_list_api(content,db)
-
-                        t.start()
-                        t.join()
-
-                        resp = que.get()
-                    			
-		return resp
-	except MySQLdb.Error, e:
-		log.error(e)
-	except Exception, e:
-		log.error(e)
-	finally:
-		try:
-			if(not db):
-				exit(0)
-			else:
-				"""
-				close MySQL connection.
-				"""			
-				close_connection(db)
-		except MySQLdb.Error, e:
-			log.error(e)		
-
-
-#=====================================================================
-#-.route: account summary list(web)
-#=====================================================================
-@app.route('/GenerateAccountSummaryReportApi/', methods = ['GET', 'POST'])
-@auto.doc(groups=['get','public','private'])
-def GenerateAccountSummaryReportApi():
-        "Generate accounts summary report via the dashboard."
-	db = create_connection()
-	try:
-		if(request.method == 'POST'):
-		        resp = {"ERROR":"1","RESULT":"FAIL","MESSAGE":"POST method not allowed"}
-		elif(request.method == 'GET'):
-                        data_grid_model = DataGridModel()
-
-		        lower_max = request.args.get('max')
-			lower_min = request.args.get('min')
-
-                        content = {"lower_max": int(lower_max),"lower_min": int(lower_min)}
-                        
-                        que = Queue.Queue()
-
-                        t = Thread(target=lambda q,(arg1,arg2): q.put(data_grid_model._get_account_summary_api(arg1,arg2)), args=(que,(content,db)))
-
-                        #-.resp = data_grid_model._get_account_summary_api(content,db)
-
-                        t.start()
-                        t.join()
-
-                        resp = que.get()
-					
-		return resp
-	except MySQLdb.Error, e:
-		log.error(e)
-	except Exception, e:
-		log.error(e)
-	finally:
-		try:
-			if(not db):
-				exit(0)
-			else:
-				"""
-				close MySQL connection.
-				"""			
-				close_connection(db)
-		except MySQLdb.Error, e:
-			log.error(e)
-
-
-#=====================================================================
-#-.route: stock account summary list(web)
-#=====================================================================
-@app.route('/GenerateStockAccountSummaryReportApi/', methods = ['GET', 'POST'])
-@auto.doc(groups=['get','public','private'])
-def GenerateStockAccountSummaryReportApi():
-        "Generate accounts summary report via the dashboard."
-        db = create_connection()
-        try:
-                if(request.method == 'POST'):
-                        resp = {"ERROR":"1","RESULT":"FAIL","MESSAGE":"POST method not allowed"}
-                elif(request.method == 'GET'):
-                        data_grid_model = DataGridModel()
-
-                        lower_max = request.args.get('max')
-                        lower_min = request.args.get('min')
-
-                        content = {"lower_max": int(lower_max),"lower_min": int(lower_min)}
-
-                        que = Queue.Queue()
-
-                        t = Thread(target=lambda q,(arg1,arg2): q.put(data_grid_model._get_stock_account_summary_api(arg1,arg2)), args=(que,(content,db)))
-
-                        #-.resp = data_grid_model._get_stock_account_summary_api(content,db)
-
-                        t.start()
-                        t.join()
-
-                        resp = que.get()
-
-                return resp
-        except MySQLdb.Error, e:
-                log.error(e)
-        except Exception, e:
-                log.error(e)
-        finally:
-                try:
-                        if(not db):
-                                exit(0)
-                        else:
-                                """
-                                close MySQL connection.
-                                """
-                                close_connection(db)
-                except MySQLdb.Error, e:
-                        log.error(e)
-
-#=====================================================================
-#-.route: activity logs(web)
-#=====================================================================
-@app.route('/GenerateActivityLogsApi/', methods = ['GET', 'POST'])
-@auto.doc(groups=['get','public','private'])
-def GenerateActivityLogs():
-        "Generate activity logs via the dashboard."
-        db = create_connection()
-        try:
-                if(request.method == 'POST'):
-                        resp = {"ERROR":"1","RESULT":"FAIL","MESSAGE":"POST method not allowed"}
-                elif(request.method == 'GET'):
-                        data_grid_model = DataGridModel()
-
-                        search = request.args.get('search')
-                        lower_max = request.args.get('max')
-                        lower_min = request.args.get('min')
-
-                        content = {"search": search,"lower_max": int(lower_max),"lower_min": int(lower_min)}
-
-                        que = Queue.Queue()
-
-                        t = Thread(target=lambda q,(arg1,arg2): q.put(data_grid_model._get_activity_list_api(arg1,arg2)), args=(que,(content,db)))
-
-                        #-.resp = data_grid_model._get_activity_list_api(content,db)
-
-                        t.start()
-                        t.join()
-
-                        resp = que.get()
-
-                return resp
-        except MySQLdb.Error, e:
-                log.error(e)
-        except Exception, e:
-                log.error(e)
-        finally:
-                try:
-                        if(not db):
-                                exit(0)
-                        else:
-                                """
-                                close MySQL connection.
-                                """
-                                close_connection(db)
-                except MySQLdb.Error, e:
-                        log.error(e)                        
-
-
-#=====================================================================
-#-.route: approve loan(web)
-#=====================================================================
-@app.route('/VetLoanRequestApi/', methods = ['GET', 'POST'])
-@auto.doc(groups=['get','public','private'])
-def VetLoanRequest():
-        "Provides a means to screen loan requests via dashboard."
-	db = create_connection()
-	try:
-		if(request.method == 'GET'):
-			resp = {"ERROR":"1","RESULT":"FAIL","MESSAGE":"GET method not allowed"}		
-		elif(request.method == 'POST'):
-			req_data = request.get_json()
-			resp = _vet_loan_request_api(req_data,db) 
-                        if(resp is None):
-                                resp = {"ERROR":"1","RESULT":"FAIL","MESSAGE":"Action not allowed"}
-
-                return resp
-	except MySQLdb.Error, e:
-		log.error(e)
-	except Exception, e:
-		log.error(e)
-	finally:
-		try:
-			if(not db):
-				exit(0)
-			else:
-				"""
-				close MySQL connection.
-				"""			
-				close_connection(db)
-		except MySQLdb.Error, e:
-			log.error(e)
-
-
-#=====================================================================
-#-.route: dashboard login incomplete. (web)
-#=====================================================================
-@app.route('/DashboardLogin/', methods = ['GET', 'POST'])
-@auto.doc(groups=['get','private'])
-def DashboardLogin():
-        "Provides a means of user control & authentication to the dashboard."
-	db = create_connection()
-	try:
-		if(request.method == 'GET'):
-                    resp = {"ERROR":"1","RESULT":"FAIL","MESSAGE":"GET method not allowed"}		
-		elif(request.method == 'POST'):
-			req_data = request.get_json()
-			
-		        resp = {"ERROR":"0","RESULT":"SUCCESS","MESSAGE":"Authentication successful."}	
-                return resp
-	except MySQLdb.Error, e:
-		log.error(e)
-	except Exception, e:
-		log.error(e)
-	finally:
-		try:
-			if(not db):
-				exit(0)
-			else:
-				"""
-				close MySQL connection.
-				"""			
-				close_connection(db)
-		except MySQLdb.Error, e:
-			log.error(e)
-
-
 #=====================================================================
 #-.route: withdraw app.
 #=====================================================================
@@ -913,9 +436,6 @@ def WithdrawRequest():
                                 t.join()
 
                                 resp = que.get()
-
-                                if(resp is None):
-                                        resp = {"ERROR":"1","RESULT":"FAIL","MESSAGE":"A/C does not exist."}
                         else:
                                 resp = {"ERROR":"1","RESULT":"FAIL","MESSAGE":"MSISDN|AMOUNT must be SET."}
 		return resp		
@@ -952,11 +472,11 @@ def OutstandingLoan():
 
                                 msisdn = request.data
 
-                                loan_db_helper = LoanDbHelper()
+                                loan_model = LoanModel()
 
                                 que = Queue.Queue()
 
-                                t = Thread(target=lambda q,(arg1,arg2): q.put(loan_db_helper._get_loan_arrears_api(arg1,arg2)), args=(que,(msisdn,db)))
+                                t = Thread(target=lambda q,(arg1,arg2): q.put(loan_model._get_loan_arrears_api(arg1,arg2)), args=(que,(msisdn,db)))
 
                                 t.start()
                                 t.join()
@@ -1063,7 +583,7 @@ def SMSGatewayApi():
 #=====================================================================
 #-.route: custom notification incomplete
 #=====================================================================
-@app.route('/CustomNotificationApi/', methods = ['GET', 'POST'])
+@app.route('/CreateNotificationApi/', methods = ['GET', 'POST'])
 @auto.doc(groups=['posts','private'])
 def CustomNotification():
         db = create_connection()
@@ -1071,19 +591,31 @@ def CustomNotification():
         redis_helper = RedisHelper()
         rd = redis_helper.create_redis_connection()
         try:
-                if(request.method == 'POST'):
+                if(request.method == 'GET'):
                         resp = {"ERROR":"1","RESULT":"FAIL","MESSAGE":"POST method not allowed"}
-                elif(request.method == 'GET'):
+                elif(request.method == 'POST'):
+                        if(request.data):
 
-                        key = redis_helper.redis_access_key()[7]+str(request.data)
-                        #-.read cache.
-                        message = redis_helper._read_redis_cache(key,rd)
-                        
-                        if(message is not None):
-                                resp = {"ERROR":"0","STATUS":"SUCCESS","MESSAGE":str(message)}
+                                content = json.loads(request.data)
+
+                                key = redis_helper.redis_access_key()[7]+str(content['msisdn'])
+
+                                cache = redis_helper._read_redis_cache(key,rd)
+
+                                json_element_manager = JsonElementManager()
+
+                                if(cache is None):
+                                        notification = json_element_manager._append_1st_element(content['message'])
+                                        #-.save message.
+                                        redis_helper._save_to_redis_cache(key,str(notification),rd)
+                                else:
+                                        notification = json_element_manager._append_nth_element(cache,content['message'])
+                                        #-.save message.
+                                        redis_helper._save_to_redis_cache(key,str(notification),rd)
+                                        
+                                resp = {"ERROR":"0","STATUS":"SUCCESS","MESSAGE": "Message has been stored."}
                         else:
-                                resp = {"ERROR":"1","STATUS":"FAIL","MESSAGE":"No message to download"}
-                        
+                                resp = {"ERROR":"1","STATUS":"FAIL","MESSAGE":"MSISDN,MESSAGE has to be set."}
                 return resp
         except MySQLdb.Error, e:
                 log.error(e)
@@ -1099,7 +631,49 @@ def CustomNotification():
                                 """
                                 close_connection(db)
                 except MySQLdb.Error, e:
-                        log.error(e)      
+                        log.error(e) 
+
+
+#=====================================================================
+#-.route: download notification.
+#=====================================================================
+@app.route('/DownloadNotificationApi/', methods = ['GET', 'POST'])
+@auto.doc(groups=['posts','private'])
+def GetNotification():
+        db = create_connection()
+
+        redis_helper = RedisHelper()
+        rd = redis_helper.create_redis_connection()
+        try:
+                if(request.method == 'POST'):
+                        resp = {"ERROR":"1","RESULT":"FAIL","MESSAGE":"POST method not allowed"}
+                elif(request.method == 'GET'):
+
+                        key = redis_helper.redis_access_key()[7]+str(request.data)
+                        #-.read cache.
+                        message = redis_helper._read_redis_cache(key,rd)
+
+                        if(message is not None):
+                                resp = (message)
+                        else:
+                                resp = {"ERROR":"1","STATUS":"FAIL","MESSAGE":"No message to download"}
+
+                return resp
+        except MySQLdb.Error, e:
+                log.error(e)
+        except Exception, e:
+                log.error(e)
+        finally:
+                try:
+                        if(not db):
+                                exit(0)
+                        else:
+                                """
+                                close MySQL connection.
+                                """
+                                close_connection(db)
+                except MySQLdb.Error, e:
+                        log.error(e)
 
 
 #=====================================================================
@@ -1115,7 +689,17 @@ def GenerateAssetConfigParamsList():
                         resp = {"ERROR":"1","RESULT":"FAIL","MESSAGE":"POST method not allowed"}
                 elif(request.method == 'GET'):
                         msisdn = request.data
-                        resp = _get_asset_config_params_api(db)
+                        
+                        asset_conf_model = AssetConfModel()
+
+                        que = Queue.Queue()
+
+                        t = Thread(target=lambda q,(arg1): q.put(asset_conf_model._get_asset_config_params_api(arg1)), args=(que,(db)))
+                        
+                        t.start()
+                        t.join()
+                        
+                        resp = que.get()
                 return resp
         except MySQLdb.Error, e:
                 log.error(e)
@@ -1166,8 +750,6 @@ def GenerateCustomerPortfolio():
                                 que = Queue.Queue()
 
                                 t = Thread(target=lambda q,(arg1,arg2): q.put(customer_model._get_customer_portfolio_api(arg1,arg2)), args=(que,(content,db)))
-                                
-                                #-..resp = customer_model._get_customer_portfolio_api(content,db)
 
                                 t.start()
                                 t.join()
@@ -1193,79 +775,6 @@ def GenerateCustomerPortfolio():
                                 close_connection(db)
                 except MySQLdb.Error, e:
                     log.error(e)
-
-
-#=====================================================================
-#-.route: asset list. (web)
-#=====================================================================
-@app.route('/GenerateAssetListApi/', methods = ['GET', 'POST'])
-@auto.doc(groups=['get','public','private'])
-def GenerateAssetList():
-        "Generate asset list via dashboard."
-        db = create_connection()
-        try:
-                if(request.method == 'POST'):
-                        resp = {"ERROR":"1","RESULT":"FAIL","MESSAGE":"POST method not allowed"}
-                elif(request.method == 'GET'):
-                        lower_max = request.args.get('max')
-                        lower_min = request.args.get('min')
-
-                        resp = _get_asset_list_api(lower_min,lower_max,db)
-                return resp
-        except MySQLdb.Error, e:
-                log.error(e)
-        except Exception, e:
-                log.error(e)
-        finally:
-                try:
-                        if(not db):
-                                exit(0)
-                        else:
-                                """
-                                close MySQL connection.
-                                """
-                                close_connection(db)
-                except MySQLdb.Error, e:
-                        log.error(e)                    
-
-
-#=====================================================================
-#-.route: customer list. (web)
-#=====================================================================
-@app.route('/GenerateCustomerListApi/', methods = ['GET', 'POST'])
-@auto.doc(groups=['get','public','private'])
-def GenerateCustomerList():
-        "Generate customer list via dashboard."
-        db = create_connection()
-        try:
-                if(request.method == 'POST'):
-                        resp = {"ERROR":"1","RESULT":"FAIL","MESSAGE":"POST method not allowed"}
-                elif(request.method == 'GET'):
-                        data_grid_model = DataGridModel()
-
-                        search    = request.args.get('search')
-                        lower_max = request.args.get('max')
-                        lower_min = request.args.get('min')
-                    
-                        content = {"search": str(search),"lower_max": int(lower_max),"lower_min": int(lower_min)}
-
-                        resp = data_grid_model._get_customer_list_api(content,db)
-                return resp
-        except MySQLdb.Error, e:
-                log.error(e)
-        except Exception, e:
-                log.error(e)
-        finally:
-                try:
-                        if(not db):
-                                exit(0)
-                        else:
-                                """
-                                close MySQL connection.
-                                """
-                                close_connection(db)
-                except MySQLdb.Error, e:
-                        log.error(e)
 
 
 #=====================================================================
@@ -1374,13 +883,9 @@ def PurchaseAssetRequest():
                                         purchase_grain_model = PurchaseGrainModel()
                                         qty  = content['no_of_unit'].replace(",","")
 
-                                        #resp = _add_purchase_request_api(content['msisdn'],content['uid'],content['description'],content['price'],content['no_of_unit'],content['cost'],db)
-
                                         que = Queue.Queue()
 
                                         t = Thread(target=lambda q,(arg1,arg2): q.put(purchase_grain_model._record_purchase_request_api(arg1,arg2)), args=(que,(content,db)))
-
-                                        #-.resp = purchase_grain_model._record_purchase_request_api(content,db)
 
                                         t.start()
                                         t.join()
@@ -1427,13 +932,9 @@ def SaleAssetRequest():
                                 if(len(content) == 6):
                                         sell_grain_model = SellGrainModel()
 
-                                        #resp = _add_sale_request_api(content['msisdn'],content['uid'],content['description'],content['price'],content['no_of_unit'],content['cost'],db)
-
                                         que = Queue.Queue()
 
                                         t = Thread(target=lambda q,(arg1,arg2): q.put(sell_grain_model._record_sell_request_api(arg1,arg2)), args=(que,(content,db)))
-
-                                        #-.resp = sell_grain_model._record_sell_request_api(content,db)
 
                                         t.start()
                                         t.join()
@@ -1474,11 +975,25 @@ def GenerateAssetSaleList():
                 if(request.method == 'POST'):
                         resp = {"ERROR":"1","RESULT":"FAIL","MESSAGE":"POST method not allowed"}
                 elif(request.method == 'GET'):
-                        msisdn = request.args.get('msisdn')
-                        msisdn = request.data
-                        is_owner = 0                        
-                        resp = _get_sale_request_list_api(msisdn,is_owner,db)
+                        if(request.data):
 
+                                msisdn = request.data
+                                is_owner = 0
+
+                                content = {"msisdn": msisdn, "is_owner": is_owner}
+
+                                sell_grain_model = SellGrainModel()
+
+                                que = Queue.Queue()
+
+                                t = Thread(target=lambda q,(arg1,arg2): q.put(sell_grain_model._get_sale_request_list_api(arg1,arg2)), args=(que,(content,db)))
+
+                                t.start()
+                                t.join()
+
+                                resp = que.get()
+                        else:
+                                resp = {"ERROR":"1","RESULT":"FAIL" ,"MESSAGE":"Action has failed"}
                 return resp
         except MySQLdb.Error, e:
                 log.error(e)
@@ -1498,7 +1013,7 @@ def GenerateAssetSaleList():
 
 
 #=====================================================================
-#-.route: buy request. app
+#-.route: buy request. app - REMOVE
 #=============i========================================================
 @app.route('/PlacePurchaseIntentApi/', methods = ['GET', 'POST'])
 @auto.doc(groups=['posts','public','private'])
@@ -1545,7 +1060,7 @@ def PlacePurchaseIntentApi():
 
 
 #=====================================================================
-#-.route: system buy offer . app
+#-.route: system buy offer . app  - REMOVE
 #=====================================================================
 @app.route('/GeneratePurchaseOfferListApi/', methods = ['GET', 'POST'])
 @auto.doc(groups=['get','public','private'])
@@ -1610,7 +1125,7 @@ def GenerateAcceptedBidList():
 
 
 #=====================================================================
-#-.route: to be revised.
+#-.route: to be revised. REMOVE
 #=====================================================================
 @app.route('/AcceptBidApi/', methods = ['GET', 'POST'])
 @auto.doc(groups=['posts','public','private'])
@@ -1676,12 +1191,10 @@ def PurchaseAssetOnAlternativeMarket():
 
                                 if(len(content) == 6):
                                         purchase_grain_model = PurchaseGrainModel()
-                                        #resp = _purchase_on_alternate_market_api(content['uid'],content['msisdn'],content['description'],content['price'],content['no_of_unit'],content['cost'],db)
+                                    
                                         que = Queue.Queue()
 
                                         t = Thread(target=lambda q,(arg1,arg2): q.put(purchase_grain_model._record_alt_purchase_request_api(arg1,arg2)), args=(que,(content,db)))
-
-                                        #-.resp = purchase_grain_model._record_alt_purchase_request_api(content,db)
 
                                         t.start()
                                         t.join()
@@ -1692,56 +1205,6 @@ def PurchaseAssetOnAlternativeMarket():
 
                         else:
                                 resp = {"ERROR":"1","RESULT":"FAIL" ,"MESSAGE":"Sell request has failed"}
-                return resp
-        except MySQLdb.Error, e:
-                log.error(e)
-        except Exception, e:
-                log.error(e)
-        finally:
-                try:
-                        if(not db):
-                                exit(0)
-                        else:
-                                """
-                                close MySQL connection.
-                                """
-                                close_connection(db)
-                except MySQLdb.Error, e:
-                        log.error(e)
-
-
-#=====================================================================
-#-.route: get configs.(web)
-#=====================================================================
-@app.route('/GenerateAssetConfigsListApi/', methods = ['GET', 'POST'])
-@auto.doc(groups=['posts','public','private'])
-def GenerateAssetConfigsList():
-        "Generate asset configuration information via dashboard."
-        db = create_connection()
-        try:
-                if(request.method == 'POST'):
-                        resp = {"ERROR":"1","RESULT":"FAIL","MESSAGE":"POST method not allowed"}
-                elif(request.method == 'GET'):
-
-                        data_grid_model = DataGridModel()
-
-                        search    = request.args.get('search')
-                        lower_max = request.args.get('max')
-                        lower_min = request.args.get('min')
-
-                        content = {"search": search,"lower_max": int(lower_max),"lower_min": int(lower_min)}
-
-                        que = Queue.Queue()
-
-                        t = Thread(target=lambda q,(arg1,arg2): q.put(data_grid_model._get_asset_config_list_api(arg1,arg2)), args=(que,(content,db)))
-
-                        #-.resp = data_grid_model._get_asset_config_list_api(content,db)
-
-                        t.start()
-                        t.join()
-
-                        resp = que.get()
-
                 return resp
         except MySQLdb.Error, e:
                 log.error(e)
@@ -1775,7 +1238,9 @@ def AddAssetConfigs():
                         if(request.data):
                                 content = json.loads(request.data)
 
-                                resp = _create_asset_config_api(content['trx_fee'],content['min_limit'],content['max_limit'],content['currency'],db)
+                                asset_conf_model = AssetConfModel()
+                                
+                                resp = asset_conf_model._create_asset_config_api(content,db)
                         else:
                                 resp = {"ERROR":"1","RESULT":"FAIL" ,"MESSAGE":"Config setup has failed"}
                 return resp
@@ -1811,7 +1276,9 @@ def ModifyAssetConfigs():
                         if(request.data):
                                 content = json.loads(request.data)
 
-                                resp = _modify_asset_config_api(content['cnf_id'],content['trx_fee'],content['min_limit'],content['max_limit'],content['currency'],db)
+                                asset_conf_model = AssetConfModel()
+
+                                resp = asset_conf_model._modify_asset_config_api(content,db)
                         else:
                                 resp = {"ERROR":"1","RESULT":"FAIL" ,"MESSAGE":"Config setup has failed"}
                 return resp
@@ -1853,7 +1320,7 @@ def GenerateAssetTradeList():
                         #-.read cache.
                         cache = redis_helper._read_redis_cache(key,rd)
 
-                        if(cache == "null" or cache is None):
+                        if(cache is None):
                                 resp = _get_asset_trend_list_api(msisdn,db)
                                 #-.save response.
                                 redis_helper._save_to_redis_cache(key,str(resp),rd)
@@ -1910,12 +1377,10 @@ def SecuredLoan():
                         if(request.data):
                                 loan_model = LoanModel()
                                 content = json.loads(request.data)                    
-                                #--...resp = _record_secured_loan_request_api(content['msisdn'],content['amount'],str(float(str(content['collateral_percentage']).replace("p",""))/100),content['has_collateral'],db)
+                                
                                 que = Queue.Queue()
 
                                 t = Thread(target=lambda q,(arg1,arg2): q.put(loan_model._record_secured_loan_request_api(arg1,arg2)), args=(que,(content,db)))
-
-                                #-.resp = loan_model._record_secured_loan_request_api(content,db)
 
                                 t.start()
                                 t.join()
@@ -1953,10 +1418,25 @@ def GeneratetOwnSellRequestList():
                 if(request.method == 'POST'):
                         resp = {"ERROR":"1","RESULT":"FAIL","MESSAGE":"POST method not allowed"}
                 elif(request.method == 'GET'):
-                        msisdn = request.data
-                        is_owner = 1
+                        if(request.data):
 
-                        resp = _get_sale_request_list_api(msisdn,is_owner,db)
+                                msisdn = request.data
+                                is_owner = 1
+
+                                content = {"msisdn": msisdn, "is_owner": is_owner}
+
+                                sell_grain_model = SellGrainModel()
+
+                                que = Queue.Queue()
+
+                                t = Thread(target=lambda q,(arg1,arg2): q.put(sell_grain_model._get_sale_request_list_api(arg1,arg2)), args=(que,(content,db)))
+
+                                t.start()
+                                t.join()
+
+                                resp = que.get()
+                        else:
+                                resp = {"ERROR":"1","RESULT":"FAIL" ,"MESSAGE":"Action has failed"}
 
                 return resp
         except MySQLdb.Error, e:
@@ -1992,10 +1472,19 @@ def ModifyOwnSaleRequest():
                                 content = json.loads(request.data)
                                 
                                 if(len(content) == 6):
-                                        #-.routine call.
-                                        _delete_own_sell_requet_api(content['uid'],content['msisdn'],db)
-                                        #-.routine call.
-                                        resp = _add_sale_request_api(content['msisdn'],content['uid'],content['description'],content['price'],content['no_of_unit'],content['cost'],db)
+                                        
+                                        sell_grain_model = SellGrainModel()
+                        
+                                        sell_grain_model._delete_own_sale_requet_api(content,db)
+
+                                        que = Queue.Queue()
+
+                                        t = Thread(target=lambda q,(arg1,arg2): q.put(sell_grain_model._record_sell_request_api(arg1,arg2)), args=(que,(content,db)))
+
+                                        t.start()
+                                        t.join()
+
+                                        resp = que.get()                                        
                                 else:
                                         resp = {"ERROR":"1","RESULT":"FAIL" ,"MESSAGE":"Params expected: uid,msisdn,description,price,no_of_unit,cost"}
                         else:
@@ -2030,10 +1519,22 @@ def DeleteOwnSellRequestList():
                 if(request.method == 'POST'):
                         resp = {"ERROR":"1","RESULT":"FAIL","MESSAGE":"POST method not allowed"}
                 elif(request.method == 'GET'):
-                        content = json.loads(request.data)
+                        if(request.data):
 
-                        resp = _delete_own_sell_requet_api(content['uid'],content['msisdn'],db)
+                                content = json.loads(request.data)
 
+                                sell_grain_model = SellGrainModel()
+
+                                que = Queue.Queue()
+
+                                t = Thread(target=lambda q,(arg1,arg2): q.put(sell_grain_model._delete_own_sale_requet_api(arg1,arg2)), args=(que,(content,db)))
+
+                                t.start()
+                                t.join()
+
+                                resp = que.get()
+                        else:
+                                resp = {"ERROR":"1","RESULT":"FAIL" ,"MESSAGE":"Operation has failed."}
                 return resp
         except MySQLdb.Error, e:
                 log.error(e)
@@ -2090,10 +1591,6 @@ def PeerWalletTransfer():
                                 que = Queue.Queue()
 
                                 t = Thread(target=lambda q,(arg1,arg2): q.put(wallet_model._peer_2_peer_wallet_transfer_api(arg1,arg2)), args=(que,(content,db)))
-
-                                #resp = _peer_wallet_transfer_api(content['msisdn'],content['beneficiary_msisdn'],content['amount'],db)
-
-                                #resp = wallet_model._peer_2_peer_wallet_transfer_api(content,db)
 
                                 t.start()
                                 t.join()
@@ -2156,55 +1653,6 @@ def WalletDeposit():
 
 
 #=====================================================================
-#-.route: inventory list. (web)
-#=====================================================================
-@app.route('/GenerateInventoryListApi/', methods = ['GET', 'POST'])
-@auto.doc(groups=['get','public','private'])
-def GenerateInventoryList():
-        "Generate an inventory list via dashboard."
-        db = create_connection()
-        try:
-                if(request.method == 'POST'):
-                        resp = {"ERROR":"1","RESULT":"FAIL","MESSAGE":"POST method not allowed"}
-                elif(request.method == 'GET'):
-                        search    = request.args.get('search')
-                        lower_max = request.args.get('max')
-                        lower_min = request.args.get('min')
-
-                        data_grid_model = DataGridModel()
-
-                        #-.resp = _inventory_list_api(search,lower_min,lower_max,db)
-
-                        content = {"search": search,"lower_max": int(lower_max),"lower_min": int(lower_min)}
-
-                        que = Queue.Queue()
-
-                        t = Thread(target=lambda q,(arg1,arg2): q.put(data_grid_model._inventory_list_api(arg1,arg2)), args=(que,(content,db)))
-
-                        t.start()
-                        t.join()
-
-                        resp = que.get()
-                return resp
-        except MySQLdb.Error, e:
-                log.error(e)
-        except Exception, e:
-                log.error(e)
-        finally:
-                try:
-                        if(not db):
-                                exit(0)
-                        else:
-                                """
-                                close MySQL connection.
-                                """
-                                close_connection(db)
-                except MySQLdb.Error, e:
-                        log.error(e)
-
-
-
-#=====================================================================
 #-.route: shop inventory list. (app)
 #=====================================================================
 @app.route('/GenerateShopInventoryListApi/', methods = ['GET', 'POST'])
@@ -2221,8 +1669,6 @@ def GenerateShopInventoryList():
                 elif(request.method == 'GET'):
 
                         msisdn = request.data
-
-                        #-resp = _inventory_list_api(search,lower_min,lower_max,db)
 
                         content = {"msisdn":msisdn}
 
@@ -2266,54 +1712,6 @@ def GenerateShopInventoryList():
 
 
 #=====================================================================
-#-.route: sale list. (web)
-#=====================================================================
-@app.route('/GenerateSaleListApi/', methods = ['GET', 'POST'])
-@auto.doc(groups=['get','public','private'])
-def GenerateSaleList():
-        "Generate sales list via dashboard"
-        db = create_connection()
-        try:
-                if(request.method == 'POST'):
-                        resp = {"ERROR":"1","RESULT":"FAIL","MESSAGE":"POST method not allowed"}
-                elif(request.method == 'GET'):
-                        search    = request.args.get('search')
-                        lower_max = request.args.get('max')
-                        lower_min = request.args.get('min')
-
-                        #-.resp = _get_sales_record_list_api(search,lower_min,lower_max,db)
-
-                        data_grid_model = DataGridModel()
-
-                        content = {"search": search,"lower_max": int(lower_max),"lower_min": int(lower_min)}
-
-                        que = Queue.Queue()
-
-                        t = Thread(target=lambda q,(arg1,arg2): q.put(data_grid_model._get_sale_inventory_list_api(arg1,arg2)), args=(que,(content,db)))
-
-                        t.start()
-                        t.join()
-
-                        resp = que.get()                        
-                return resp
-        except MySQLdb.Error, e:
-                log.error(e)
-        except Exception, e:
-                log.error(e)
-        finally:
-                try:
-                        if(not db):
-                                exit(0)
-                        else:
-                                """
-                                close MySQL connection.
-                                """
-                                close_connection(db)
-                except MySQLdb.Error, e:
-                        log.error(e)
-   
-
-#=====================================================================
 #-.route: add an inventory item. (web)
 #=====================================================================
 @app.route('/CreateInventoryItemApi/', methods = ['GET', 'POST'])
@@ -2338,7 +1736,6 @@ def AddInventory():
 
                                 t = Thread(target=lambda q,(arg1,arg2): q.put(shop_model._create_inventory_item_api(arg1,arg2)), args=(que,(content,db)))
 
-                                #_create_inventory_record_api(content,db)
                                 t.start()
                                 t.join()
                                     
@@ -2393,8 +1790,6 @@ def ModifySale():
 
                                 t = Thread(target=lambda q,(arg1,arg2): q.put(shop_model._modify_inventory_item_api(arg1,arg2)), args=(que,(content,db)))
 
-                                #-resp = _modify_sale_record_api(content['qty'],content['total'],content['product_uid'],db)
-
                                 t.start()
                                 t.join()
 
@@ -2447,8 +1842,6 @@ def PostInventoryImagePath():
                                 que = Queue.Queue()
 
                                 t = Thread(target=lambda q,(arg1,arg2): q.put(shop_model._post_inventory_item_image_path_api(arg1,arg2)), args=(que,(content,db)))
-
-                                #-resp = _save_inventory_image_path_api(content['uid'],unquote(content['path']),db)
 
                                 t.start()
                                 t.join()
@@ -2503,13 +1896,10 @@ def RecordShopSaleApi():
 
                                 t = Thread(target=lambda q,(arg1,arg2): q.put(shop_model._record_shop_sale_api(arg1,arg2)), args=(que,(content,db)))
 
-                                #--.shop_model._record_shop_sale_api(content,db)
                                 t.start()
                                 t.join()
 
                                 resp = que.get()
-
-                                #--.resp = {"msisdn":"2547xxx","grand_total":"1200","cart":[{"product_id":"123456","qty":"1","name":"Key Chain","price":"150"}]}
                         else:
                                 resp = {"ERROR":"1","RESULT":"FAIL" ,"MESSAGE":"modification successful"}
                 return resp
@@ -2569,23 +1959,40 @@ def LoanRepaymentTest():
 
 
 #=====================================================================
-#-.route: purchase FRK. (app)
+#-.route: FKR wallet transaction. (app)
 #=====================================================================
-@app.route('/PurchaseFKRTokenApi/', methods = ['GET', 'POST'])
+@app.route('/FRKTokenWalletTransactionApi/', methods = ['GET', 'POST'])
 @auto.doc(groups=['posts','public','private'])
 @auto.doc(args=['amount','msisdn'])
-def PurchaseFRKToken():
+def FRKTokenWalletTransaction():
         db = create_connection()
+        redis_helper = RedisHelper()
+        rd = redis_helper.create_redis_connection()
         try:
                 resp = 'Ok'
                 if(request.method == 'GET'):
                         resp = {"ERROR":"1","RESULT":"FAIL","MESSAGE":"GET method not allowed"}
                 elif(request.method == 'POST'):
                         if(request.data):
-                                trx = str(randint(100000000,999999999))
-                                content = json.loads(request.data)
+                            
+                                frk_token_model = FRKTokenModel()
 
-                                resp = {"ERROR":"0","RESULT":"SUCCESS","MESSAGE":"Debit  wallet balance."}
+                                content = json.loads(request.data)
+                               
+                                key_1 = redis_helper.redis_access_key()[0]+str(content['msisdn'])
+                                key_2 = redis_helper.redis_access_key()[1]+str(content['msisdn'])
+
+                                redis_helper._delete_from_redis_cache(key_1,rd)
+                                redis_helper._delete_from_redis_cache(key_2,rd)                               
+
+                                que = Queue.Queue()
+
+                                t = Thread(target=lambda q,(arg1,arg2): q.put(frk_token_model._record_frk_transaction_api(arg1,arg2)), args=(que,(content,db)))
+
+                                t.start()
+                                t.join()
+
+                                resp = que.get()
                         else:
                                 resp = {"ERROR":"1","RESULT":"FAIL" ,"MESSAGE":"No data posted"}
                 return resp
@@ -2607,12 +2014,12 @@ def PurchaseFRKToken():
 
 
 #=====================================================================
-#-.route: sell  FRK. (app)
+#-.route: suspend wallet. (web)
 #=====================================================================
-@app.route('/SellFKRTokenApi/', methods = ['GET', 'POST'])
+@app.route('/SuspendWalletApi/', methods = ['GET', 'POST'])
 @auto.doc(groups=['posts','public','private'])
 @auto.doc(args=['amount','msisdn'])
-def SellFRKToken():
+def SuspendWallet():
         db = create_connection()
         try:
                 resp = 'Ok'
@@ -2620,10 +2027,21 @@ def SellFRKToken():
                         resp = {"ERROR":"1","RESULT":"FAIL","MESSAGE":"GET method not allowed"}
                 elif(request.method == 'POST'):
                         if(request.data):
-                                trx = str(randint(100000000,999999999))
                                 content = json.loads(request.data)
 
-                                resp = {"ERROR":"0","RESULT":"SUCCESS","MESSAGE":"Credit wallet balance."}
+                                wallet_model = WalletModel()
+
+                                que = Queue.Queue()
+
+                                t = Thread(target=lambda q,(arg1,arg2): q.put(wallet_model._suspend_wallet_account_api(arg1,arg2)), args=(que,(content,db)))
+
+                                t.start()
+                                t.join()
+
+                                resp = que.get()
+
+                                resp = content
+
                         else:
                                 resp = {"ERROR":"1","RESULT":"FAIL" ,"MESSAGE":"No data posted"}
                 return resp
@@ -2641,7 +2059,7 @@ def SellFRKToken():
                                 """
                                 close_connection(db)
                 except MySQLdb.Error, e:
-                        log.error(e)                        
+                        log.error(e)
 
 
 #=====================================================================

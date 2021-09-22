@@ -18,23 +18,27 @@ from conn.DataGridModel import DataGridModel
 from conn.CustomerModel import CustomerModel
 from conn.ShopModel import ShopModel
 
+from conn.sysConf.SysConfModel import SysConfModel
+
 from conn.RedisHelper import RedisHelper
 #-from conn.DataGridModel import DataGridModel
 from conn.db_helper import create_connection,close_connection,NoResultException
 from conn.model import _read_redis_cache_api
 
+from conn.helperUtils.JsonAddElement import JsonElementManager
+
 loan_model =  LoanModel()
-wallet_model = WalletModel()
-purchase_grain_model = PurchaseGrainModel()
+#wallet_model = WalletModel()
+#purchase_grain_model = PurchaseGrainModel()
 sell_grain_model = SellGrainModel()
 
 
-data_grid_model = DataGridModel()
+#data_grid_model = DataGridModel()
 
 
-customer_model = CustomerModel()
+#customer_model = CustomerModel()
 
-shop_model = ShopModel()
+#shop_model = ShopModel()
 
 db = create_connection()
 
@@ -76,8 +80,8 @@ try:
 
 
     #-result = data_grid_model._shop_inventory_list_api(content,db)
-    redis_helper = RedisHelper()
-    rd = redis_helper.create_redis_connection()
+    #redis_helper = RedisHelper()
+    #rd = redis_helper.create_redis_connection()
     #---.print(redis_helper.redis_access_key())
     #-.key = redis_access_key()[3]+str("254707132162")
     #-.read cache.
@@ -101,8 +105,31 @@ try:
     #content = {"msisdn": "254707132162"}
     #result = customer_model._get_customer_portfolio_api(content,db)
 
-    result = loan_model._get_loan_arrears_api("254707132162z",db)
+    #result = loan_model._get_loan_arrears_api("254707132162z",db)
+
+    content = {"message": [{"sms": "test 1"}, {"sms": "test 2"}, {"sms": "test 222222"}]}
+    #json_element_manager = JsonElementManager()
+
+    #add_element = "test 1234567890"
+    #result = json_element_manager._append_nth_element(content,add_element)
     
+    #print(result)
+
+    #result = json_element_manager._append_1st_element(add_element)
+
+    #content = {"id": "12345678", "user": "admin", "mobile": "254707132162", "notes": "hello world", "head": "approval_operation"}
+
+    #result = loan_model._vet_loan_request_api(content,db)
+
+
+    #sys_conf_model = SysConfModel()
+    
+    #result = sys_conf_model._get_asset_config_params_api(db)
+
+    content = {"msisdn": "254707132162", "is_owner": "0"}
+
+    result = sell_grain_model._get_sale_request_list_api(content,db)
+
     print(result)
 except MySQLdb.Error, e:
     log.error(e)

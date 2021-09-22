@@ -14,7 +14,7 @@ from conn.model import _read_sell_request_on_market_queue_sys,_get_asset_master_
 from conn.db_helper import create_connection,close_connection,NoResultException,create_redis_connection,redis_access_key
 from conn.configs.freknur_settings import loan_params
 
-from conn.PurchaseGrainModel import PurchaseGrainModel
+from conn.purchaseGrain.PurchaseGrainModel import PurchaseGrainModel
 
 log = logging.getLogger()
 
